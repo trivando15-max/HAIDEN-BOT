@@ -8,7 +8,7 @@ const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBit
 
 const PREFIX = '!';
 const VOUCH_CHANNEL_ID = '1574971863287992350';
-const CLOSED_TICKETS_LOG_CHANNEL = '1470965042294820885';
+const CLOSED_TICKETS_LOG_CHANNEL = '1575184096882073600';
 const COMPRAS_FILE = './compras.json';
 
 const ROLES_COMPRADORES = [
@@ -192,26 +192,23 @@ client.on('messageCreate', async (message) => {
   if (!message.embeds.length) return;
 
   const embed = message.embeds[0];
-  const title = (embed.title || '').toLowerCase();
-  const description = (embed.description || '').toLowerCase();
-
-  if (!title.includes('closed') && !description.includes('closed') && !title.includes('cerrado') && !description.includes('cerrado')) {
-    return;
-  }
+  if (!embed.title || !embed.title.toLowerCase().includes('ticket closed')) return;
 
   console.log('Ticket cerrado detectado');
 
-  const fullText = (embed.description || '') + ' ' + (embed.fields?.map(f => `${f.name}: ${f.value}`).join(' ') || '');
-  const userMatch = fullText.match(/<@!?(\d+)>/);
-  const userId = userMatch ? userMatch[1] : null;
+  let userId = null;
+  const authorField = embed.fields?.find(f => f.name === 'Ticket Author');
+  if (authorField) {
+    const match = authorField.value.match(/<@!?(\d+)>/);
+    if (match) userId = match[1];
+  }
 
   if (!userId) {
-    console.log('No se encontró usuario');
+    console.log('No se encontró Ticket Author');
     return;
   }
 
-  const referencia = embed.fields?.find(f => f.name.toLowerCase().includes('ticket'))?.value || 'ticket';
-  const pais = embed.fields?.find(f => f.name.toLowerCase().includes('país') || f.name.toLowerCase().includes('country'))?.value || 'No especificado';
+  const ticketName = embed.fields?.find(f => f.name === 'Ticket Name')?.value || 'ticket';
 
   if (!compradores[userId]) compradores[userId] = { robux: 0, dinero: 0, compras: 0 };
   compradores[userId].compras += 1;
@@ -229,11 +226,9 @@ client.on('messageCreate', async (message) => {
       .setDescription(`# <@${userId}>\nha realizado una compra en **Haiden Store**`)
       .addFields(
         { name: '👤 Cliente', value: `<@${userId}>`, inline: true },
-        { name: '🔖 Referencia', value: referencia, inline: true },
-        { name: '🌍 País', value: pais, inline: true },
+        { name: '🔖 Referencia', value: ticketName, inline: true },
         { name: '📦 Compra', value: 'Robux', inline: true },
-        { name: '💵 Precio', value: 'No especificado', inline: true },
-        { name: '🏆 Rango', value: 'Buyer', inline: true }
+        { name: '💵 Precio', value: 'No especificado', inline: true }
       )
       .setFooter({ text: 'ʜᴀɪᴅᴇɴ ꜱᴛᴏʀᴇ 🌙' })
       .setTimestamp();
@@ -248,11 +243,9 @@ client.on('messageCreate', async (message) => {
       .setTitle('✅ Tu ticket ha sido cerrado')
       .setDescription(
         `Hola, tu ticket en **Haiden Store** ha sido procesado.\n\n` +
-        `🔖 **Referencia:** \`${referencia}\`\n` +
-        `🌍 **País:** ${pais}\n` +
+        `🔖 **Referencia:** \`${ticketName}\`\n` +
         `📦 **Tipo de compra:** Robux\n` +
         `📅 **Cerrado:** <t:${Math.floor(Date.now() / 1000)}:f>\n\n` +
-        `━━━━━━━━━━━━━━━━━━━━\n` +
         `Gracias por tu compra ❤️`
       )
       .setFooter({ text: 'ʜᴀɪᴅᴇɴ ꜱᴛᴏʀᴇ 🌙' });
