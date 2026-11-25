@@ -1,11 +1,14 @@
 const { Client, GatewayIntentBits, EmbedBuilder, SlashCommandBuilder, REST, Routes, PermissionFlagsBits } = require('discord.js');
 const axios = require('axios');
+const fs = require('fs');
+const express = require('express');
 require('dotenv').config();
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent] });
 
 const PREFIX = '!';
 const VOUCH_CHANNEL_ID = '1470667210778214675';
+const COMPRAS_FILE = './compras.json';
 
 const GROUPS = [
   { id: 35619576, name: "ANIME UGC'S CREATOR", requiredDays: 15 },
@@ -50,7 +53,20 @@ const RANGOS = [
   { nombre: '100K Buyer', robux: 100000 }
 ];
 
-let compradores = {};
+function loadCompras() {
+  if (!fs.existsSync(COMPRAS_FILE)) return {};
+  try {
+    return JSON.parse(fs.readFileSync(COMPRAS_FILE, 'utf8'));
+  } catch {
+    return {};
+  }
+}
+
+function saveCompras() {
+  fs.writeFileSync(COMPRAS_FILE, JSON.stringify(compradores, null, 2));
+}
+
+let compradores = loadCompras();
 
 function extractDataFromMessages(messages) {
   const fullText = messages.map(m => m.content).join('\n');
@@ -102,7 +118,6 @@ async function getMembership(groupId, userId) {
 function crearEmbedPrecio(paisKey, cantidad, tipo) {
   const p = PAISES[paisKey];
   if (!p) return null;
-
   const pn = p.normal;
   const pd = p.descuento;
 
@@ -110,39 +125,21 @@ function crearEmbedPrecio(paisKey, cantidad, tipo) {
   if (tipo === 'a_robux') {
     const robuxN = Math.floor((cantidad / pn) * 1000);
     const robuxD = Math.floor((cantidad / pd) * 1000);
-    desc = `# ${robuxN.toLocaleString()} Robux\n\n` +
-           `${p.flag} **${p.nombre}**\n` +
-           `💵 **Monto ingresado:** \`${cantidad} ${p.moneda}\`\n` +
-           `📦 **Recibirás:** \`${robuxN.toLocaleString()} Robux\`\n\n` +
-           `🔥 **Con descuento (30k+):** **${robuxD.toLocaleString()} Robux**\n` +
-           `━━━━━━━━━━━━━━━━━━━━\n` +
-           `*Tarifa:* \`${pn} ${p.moneda} / 1.000 Robux\``;
+    desc = `# ${robuxN.toLocaleString()} Robux\n\n${p.flag} **${p.nombre}**\n💵 **Monto ingresado:** \`${cantidad} ${p.moneda}\`\n📦 **Recibirás:** \`${robuxN.toLocaleString()} Robux\`\n\n🔥 **Con descuento (30k+):** **${robuxD.toLocaleString()} Robux**\n━━━━━━━━━━━━━━━━━━━━\n*Tarifa:* \`${pn} ${p.moneda} / 1.000 Robux\``;
   } else {
     const dineroN = (cantidad / 1000 * pn).toFixed(2);
     const dineroD = (cantidad / 1000 * pd).toFixed(2);
-    desc = `# ${dineroN} ${p.moneda}\n\n` +
-           `${p.flag} **${p.nombre}**\n` +
-           `📦 **Robux ingresados:** \`${cantidad.toLocaleString()}\`\n` +
-           `💵 **Costo:** \`${dineroN} ${p.moneda}\`\n\n` +
-           `🔥 **Con descuento (30k+):** **${dineroD} ${p.moneda}**\n` +
-           `━━━━━━━━━━━━━━━━━━━━\n` +
-           `*Tarifa:* \`${pn} ${p.moneda} / 1.000 Robux\``;
+    desc = `# ${dineroN} ${p.moneda}\n\n${p.flag} **${p.nombre}**\n📦 **Robux ingresados:** \`${cantidad.toLocaleString()}\`\n💵 **Costo:** \`${dineroN} ${p.moneda}\`\n\n🔥 **Con descuento (30k+):** **${dineroD} ${p.moneda}**\n━━━━━━━━━━━━━━━━━━━━\n*Tarifa:* \`${pn} ${p.moneda} / 1.000 Robux\``;
   }
 
-  return new EmbedBuilder()
-    .setColor(0x00ff88)
-    .setAuthor({ name: 'Haiden Store • Calculadora' })
-    .setDescription(desc)
-    .setFooter({ text: 'Haiden Store' });
+  return new EmbedBuilder().setColor(0x00ff88).setAuthor({ name: 'Haiden Store • Calculadora' }).setDescription(desc).setFooter({ text: 'Haiden Store' });
 }
 
 client.once('ready', async () => {
   console.log(`Bot listo como ${client.user.tag}`);
+  console.log(`Compras cargadas: ${Object.keys(compradores).length} usuarios`);
 
-  const paisChoices = Object.entries(PAISES).map(([key, p]) => ({
-    name: `${p.flag} ${p.nombre}`,
-    value: key
-  }));
+  const paisChoices = Object.entries(PAISES).map(([key, p]) => ({ name: `${p.flag} ${p.nombre}`, value: key }));
 
   const commands = [
     new SlashCommandBuilder().setName('verificar').setDescription('Verifica días en grupos').addStringOption(o => o.setName('usuario').setDescription('Username de Roblox').setRequired(true)),
@@ -150,9 +147,7 @@ client.once('ready', async () => {
     new SlashCommandBuilder().setName('top').setDescription('Top compradores'),
     new SlashCommandBuilder().setName('perfil').setDescription('Tu perfil de comprador').addUserOption(o => o.setName('usuario').setDescription('Usuario').setRequired(false)),
     new SlashCommandBuilder().setName('precio').setDescription('Calculadora de precios')
-      .addStringOption(o => o.setName('tipo').setDescription('Tipo de cálculo').setRequired(true).addChoices(
-        { name: 'Dinero → Robux', value: 'a_robux' }, { name: 'Robux → Dinero', value: 'a_dinero' }
-      ))
+      .addStringOption(o => o.setName('tipo').setDescription('Tipo de cálculo').setRequired(true).addChoices({ name: 'Dinero → Robux', value: 'a_robux' }, { name: 'Robux → Dinero', value: 'a_dinero' }))
       .addNumberOption(o => o.setName('cantidad').setDescription('Cantidad').setRequired(true))
       .addStringOption(o => o.setName('pais').setDescription('País').setRequired(true).addChoices(...paisChoices))
   ].map(c => c.toJSON());
@@ -177,9 +172,7 @@ client.on('interactionCreate', async interaction => {
       else if (m.days >= g.requiredDays) { eligible++; results.push({ ...g, status: 'eligible', days: m.days }); }
       else { waiting++; results.push({ ...g, status: 'waiting', days: m.days, remaining: g.requiredDays - m.days }); }
     }
-    const embed = new EmbedBuilder()
-      .setTitle('🔍 VERIFICACIÓN DE GRUPOS')
-      .setColor(0x5865F2)
+    const embed = new EmbedBuilder().setTitle('🔍 VERIFICACIÓN DE GRUPOS').setColor(0x5865F2)
       .setDescription(`# ${username}\n**Roblox ID:** \`${userId}\`\n\n**📊 RESUMEN**\n✅ **${eligible}** Elegibles\n⏳ **${waiting}** En espera\n❌ **${notIn}** Sin unirse`);
     const wg = results.filter(r => r.status === 'waiting');
     if (wg.length) embed.addFields({ name: `⏳ EN ESPERA (${wg.length})`, value: wg.map(g => `⏳ **${g.name}**\n↳ ${g.days}/${g.requiredDays} días`).join('\n\n').slice(0, 1024) });
@@ -211,6 +204,7 @@ client.on('interactionCreate', async interaction => {
       compradores[uid].robux += robux;
       compradores[uid].dinero += dinero;
       compradores[uid].compras += 1;
+      saveCompras();
     }
 
     let thumb = null;
@@ -218,11 +212,8 @@ client.on('interactionCreate', async interaction => {
 
     const ch = client.channels.cache.get(VOUCH_CHANNEL_ID);
     if (!ch) return interaction.editReply('❌ Canal no encontrado');
-    const embed = new EmbedBuilder()
-      .setTitle('🛒 ¡Nueva compra registrada!')
-      .setColor(0x00ff88)
-      .setDescription(`# ${cliente}\nha realizado una compra en **Haiden Store**`)
-      .setThumbnail(thumb)
+    const embed = new EmbedBuilder().setTitle('🛒 ¡Nueva compra registrada!').setColor(0x00ff88)
+      .setDescription(`# ${cliente}\nha realizado una compra en **Haiden Store**`).setThumbnail(thumb)
       .addFields(
         { name: '👤 Cliente', value: discordUser, inline: true },
         { name: '🔖 Referencia', value: referencia, inline: true },
@@ -230,9 +221,7 @@ client.on('interactionCreate', async interaction => {
         { name: '💵 Precio', value: precio, inline: true },
         { name: '📊 Total', value: total, inline: true },
         { name: '🏆 Rango', value: rango, inline: true }
-      )
-      .setFooter({ text: 'Haiden Store • Autovouch' })
-      .setTimestamp();
+      ).setFooter({ text: 'Haiden Store • Autovouch' }).setTimestamp();
     await ch.send({ embeds: [embed] });
     await interaction.editReply('✅ Vouch publicado');
   }
@@ -240,9 +229,7 @@ client.on('interactionCreate', async interaction => {
   if (interaction.commandName === 'top') {
     const sorted = Object.entries(compradores).sort((a, b) => b[1].robux - a[1].robux).slice(0, 10);
     if (!sorted.length) return interaction.reply('Todavía no hay datos.');
-    const embed = new EmbedBuilder()
-      .setTitle('🏆 TOP COMPRADORES')
-      .setColor(0xFFD700)
+    const embed = new EmbedBuilder().setTitle('🏆 TOP COMPRADORES').setColor(0xFFD700)
       .setDescription('# Los mejores compradores\n\n' + sorted.map(([id, d], i) => `**#${i+1}** <@${id}>\n📦 **${d.robux.toLocaleString()}** Robux • 💰 $${d.dinero.toFixed(2)}`).join('\n\n'));
     await interaction.reply({ embeds: [embed] });
   }
@@ -252,10 +239,7 @@ client.on('interactionCreate', async interaction => {
     const data = compradores[user.id] || { robux: 0, dinero: 0, compras: 0 };
     const { actual, siguiente } = getRango(data.robux);
     const faltan = siguiente ? siguiente.robux - data.robux : 0;
-    const embed = new EmbedBuilder()
-      .setTitle(`📊 Perfil de ${user.username}`)
-      .setColor(0x5865F2)
-      .setThumbnail(user.displayAvatarURL())
+    const embed = new EmbedBuilder().setTitle(`📊 Perfil de ${user.username}`).setColor(0x5865F2).setThumbnail(user.displayAvatarURL())
       .setDescription(`# ${actual.nombre}`)
       .addFields(
         { name: '💎 Robux comprados', value: `**${data.robux.toLocaleString()}**`, inline: true },
@@ -282,19 +266,8 @@ client.on('messageCreate', async message => {
   const command = args.shift().toLowerCase();
 
   if (command === 'help') {
-    const embed = new EmbedBuilder()
-      .setTitle('📖 Lista de Comandos')
-      .setColor(0x5865F2)
-      .setDescription(
-        '# Comandos disponibles\n\n' +
-        '**Con `!`:**\n' +
-        '`!verificar usuario` → Verifica días en grupos\n' +
-        '`!vouch` → Publica un vouch\n' +
-        '`!top` → Top de compradores\n' +
-        '`!perfil` → Tu perfil\n' +
-        '`!precio 10 argentina` → Calculadora\n\n' +
-        '**También funcionan con `/`**'
-      );
+    const embed = new EmbedBuilder().setTitle('📖 Lista de Comandos').setColor(0x5865F2)
+      .setDescription('# Comandos disponibles\n\n**Con `!`:**\n`!verificar usuario`\n`!vouch`\n`!top`\n`!perfil`\n`!precio 10 argentina`\n\n**También funcionan con `/`**');
     await message.reply({ embeds: [embed] });
   }
 
@@ -302,16 +275,18 @@ client.on('messageCreate', async message => {
     const cantidad = parseFloat(args[0]);
     const paisInput = args.slice(1).join(' ').toLowerCase();
     if (!cantidad || !paisInput) return message.reply('Usá: `!precio 10 argentina`');
-
-    const paisKey = Object.keys(PAISES).find(k => 
-      PAISES[k].nombre.toLowerCase().includes(paisInput) || k.includes(paisInput)
-    );
+    const paisKey = Object.keys(PAISES).find(k => PAISES[k].nombre.toLowerCase().includes(paisInput) || k.includes(paisInput));
     if (!paisKey) return message.reply('❌ País no encontrado.');
-
     const tipo = args.includes('robux') ? 'a_dinero' : 'a_robux';
     const embed = crearEmbedPrecio(paisKey, cantidad, tipo);
     await message.reply({ embeds: [embed] });
   }
 });
+
+// Para que Render detecte el puerto
+const app = express();
+const PORT = process.env.PORT || 3000;
+app.get('/', (req, res) => res.send('Bot online'));
+app.listen(PORT, () => console.log(`Web server on port ${PORT}`));
 
 client.login(process.env.DISCORD_TOKEN);
