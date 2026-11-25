@@ -8,13 +8,14 @@ const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBit
 
 const PREFIX = '!';
 const VOUCH_CHANNEL_ID = '1574971863287992350';
+const CLOSED_TICKETS_LOG_CHANNEL = '1470965042294820885';
 const COMPRAS_FILE = './compras.json';
 
 const ROLES_COMPRADORES = [
-  { id: '1477849576160493609', min: 2000 }, // Adinerados
-  { id: '1477849302452666419', min: 500 },  // Elites
-  { id: '1477848925183676487', min: 101 },  // Exclusivos
-  { id: '1477848696614817905', min: 0 }     // Regulares
+  { id: '1477849576160493609', min: 2000 },
+  { id: '1477849302452666419', min: 500 },
+  { id: '1477848925183676487', min: 101 },
+  { id: '1477848696614817905', min: 0 }
 ];
 
 const EMOJI_VERI = '<a:EMOJIVERI:1574998893689577523>';
@@ -82,20 +83,15 @@ async function asignarRolComprador(guild, userId, totalDinero) {
   try {
     const member = await guild.members.fetch(userId).catch(() => null);
     if (!member) return;
-
     const rolCorrespondiente = ROLES_COMPRADORES.find(r => totalDinero >= r.min);
     if (!rolCorrespondiente) return;
-
-    // Quitar otros roles de comprador
     for (const rol of ROLES_COMPRADORES) {
       if (member.roles.cache.has(rol.id) && rol.id !== rolCorrespondiente.id) {
         await member.roles.remove(rol.id).catch(() => {});
       }
     }
-
     if (!member.roles.cache.has(rolCorrespondiente.id)) {
       await member.roles.add(rolCorrespondiente.id);
-      console.log(`Rol asignado a ${userId}: ${rolCorrespondiente.id}`);
     }
   } catch (e) {
     console.log('Error asignando rol:', e.message);
@@ -191,87 +187,60 @@ client.once('ready', async () => {
   await rest.put(Routes.applicationCommands(client.user.id), { body: commands });
 });
 
-client.on('channelDelete', async (channel) => {
-  if (!channel.name?.startsWith('ticket-')) return;
-  console.log(`Ticket cerrado: ${channel.name}`);
+// Detectar log de Ticket King
+client.on('messageCreate', async (message) => {
+  if (message.channel.id !== CLOSED_TICKETS_LOG_CHANNEL || !message.author.bot) return;
+  if (!message.embeds.length) return;
 
-  const transcriptChannel = client.channels.cache.get(VOUCH_CHANNEL_ID);
-  if (!transcriptChannel) return;
+  console.log('Log de ticket cerrado detectado');
 
-  let messages;
-  try {
-    messages = await channel.messages.fetch({ limit: 50 });
-  } catch (e) {
-    console.log('No se pudieron leer mensajes del ticket:', e.message);
+  const embed = message.embeds[0];
+  let userId = null;
+  let ticketName = 'ticket';
+
+  // Buscar ID de usuario en los fields o description
+  const text = (embed.description || '') + ' ' + (embed.fields?.map(f => f.value).join(' ') || '');
+  const match = text.match(/<@!?(\d+)>/);
+  if (match) userId = match[1];
+
+  if (!userId) {
+    console.log('No se encontró usuario en el log');
     return;
   }
 
-  const sorted = [...messages.values()].reverse();
-  const fullText = sorted.map(m => m.content).join('\n');
-  const auto = extractDataFromMessages(sorted);
+  // Por ahora registramos una compra básica (podés mejorar la extracción después)
+  if (!compradores[userId]) compradores[userId] = { robux: 0, dinero: 0, compras: 0 };
+  compradores[userId].compras += 1;
+  saveCompras();
 
-  const cliente = auto.cliente || 'Cliente';
-  const referencia = channel.name;
-  const pais = auto.pais || 'No especificado';
-  const compra = auto.compra || 'No especificado';
-  const precio = auto.precio || 'No especificado';
-
-  // Registrar compra y dar rol
-  const uidMatch = (auto.discord || '').match(/\d+/);
-  if (uidMatch) {
-    const uid = uidMatch[0];
-    const robux = parseInt((compra.match(/\d+/) || [0])[0]);
-    const dinero = parseFloat((precio.match(/[\d.]+/) || [0])[0]);
-    if (!compradores[uid]) compradores[uid] = { robux: 0, dinero: 0, compras: 0 };
-    compradores[uid].robux += robux;
-    compradores[uid].dinero += dinero;
-    compradores[uid].compras += 1;
-    saveCompras();
-
-    const guild = channel.guild;
-    if (guild) await asignarRolComprador(guild, uid, compradores[uid].dinero);
-
-    // Intentar DM
-    try {
-      const user = await client.users.fetch(uid);
-      const dmEmbed = new EmbedBuilder()
-        .setColor(0x00ff88)
-        .setAuthor({ name: '✵•.¸,✵°✵.｡.✰ ℍ𝕒𝕚𝕕𝕖𝕟 𝕊𝕥𝕠𝕣𝕖 🌙 ✰.｡.✵°✵,¸.•✵´' })
-        .setTitle('✅ Tu ticket ha sido cerrado')
-        .setDescription(
-          `Hola **${cliente}**, tu ticket en **Haiden Store** ha sido procesado.\n\n` +
-          `🔖 **Referencia:** \`${referencia}\`\n` +
-          `🌍 **País:** ${pais}\n` +
-          `📦 **Compra:** ${compra}\n` +
-          `💵 **Precio:** ${precio}\n` +
-          `📅 **Cerrado:** <t:${Math.floor(Date.now() / 1000)}:f>\n\n` +
-          `━━━━━━━━━━━━━━━━━━━━\n` +
-          `Gracias por tu compra ❤️`
-        )
-        .setFooter({ text: 'ʜᴀɪᴅᴇɴ ꜱᴛᴏʀᴇ 🌙' });
-      await user.send({ embeds: [dmEmbed] });
-      console.log(`DM enviado a ${uid}`);
-    } catch (e) {
-      console.log(`No se pudo enviar DM a ${uid}: ${e.message}`);
-    }
-  }
+  const guild = message.guild;
+  if (guild) await asignarRolComprador(guild, userId, compradores[userId].dinero);
 
   // Enviar al canal de vouch
-  const embed = new EmbedBuilder()
-    .setColor(0x00ff88)
-    .setAuthor({ name: '✵•.¸,✵°✵.｡.✰ ℍ𝕒𝕚𝕕𝕖𝕟 𝕊𝕥𝕠𝕣𝕖 🌙 ✰.｡.✵°✵,¸.•✵´' })
-    .setTitle('✅ Ticket cerrado')
-    .setDescription(
-      `**${cliente}**\n\n` +
-      `🔖 **Referencia:** \`${referencia}\`\n` +
-      `🌍 **País:** ${pais}\n` +
-      `📦 **Compra:** ${compra}\n` +
-      `💵 **Precio:** ${precio}\n` +
-      `📅 **Cerrado:** <t:${Math.floor(Date.now() / 1000)}:f>`
-    )
-    .setFooter({ text: 'ʜᴀɪᴅᴇɴ ꜱᴛᴏʀᴇ 🌙' });
+  const vouchChannel = client.channels.cache.get(VOUCH_CHANNEL_ID);
+  if (vouchChannel) {
+    const vouchEmbed = new EmbedBuilder()
+      .setColor(0x00ff88)
+      .setAuthor({ name: '✵•.¸,✵°✵.｡.✰ ℍ𝕒𝕚𝕕𝕖𝕟 𝕊𝕥𝕠𝕣𝕖 🌙 ✰.｡.✵°✵,¸.•✵´' })
+      .setTitle('✅ Ticket cerrado')
+      .setDescription(`Ticket procesado para <@${userId}>\n🔖 Referencia: \`${ticketName}\``)
+      .setFooter({ text: 'ʜᴀɪᴅᴇɴ ꜱᴛᴏʀᴇ 🌙' });
+    await vouchChannel.send({ embeds: [vouchEmbed] });
+  }
 
-  await transcriptChannel.send({ embeds: [embed] });
+  // Intentar DM
+  try {
+    const user = await client.users.fetch(userId);
+    const dmEmbed = new EmbedBuilder()
+      .setColor(0x00ff88)
+      .setAuthor({ name: '✵•.¸,✵°✵.｡.✰ ℍ𝕒𝕚𝕕𝕖𝕟 𝕊𝕥𝕠𝕣𝕖 🌙 ✰.｡.✵°✵,¸.•✵´' })
+      .setTitle('✅ Tu ticket ha sido cerrado')
+      .setDescription(`Hola, tu ticket en **Haiden Store** ha sido procesado.\n\nGracias por tu compra ❤️`)
+      .setFooter({ text: 'ʜᴀɪᴅᴇɴ ꜱᴛᴏʀᴇ 🌙' });
+    await user.send({ embeds: [dmEmbed] });
+  } catch (e) {
+    console.log('No se pudo enviar DM:', e.message);
+  }
 });
 
 client.on('interactionCreate', async interaction => {
