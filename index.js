@@ -187,28 +187,32 @@ client.once('ready', async () => {
   await rest.put(Routes.applicationCommands(client.user.id), { body: commands });
 });
 
-// Detectar log de Ticket King
 client.on('messageCreate', async (message) => {
   if (message.channel.id !== CLOSED_TICKETS_LOG_CHANNEL || !message.author.bot) return;
   if (!message.embeds.length) return;
 
-  console.log('Log de ticket cerrado detectado');
-
   const embed = message.embeds[0];
-  let userId = null;
-  let ticketName = 'ticket';
+  const title = (embed.title || '').toLowerCase();
+  const description = (embed.description || '').toLowerCase();
 
-  // Buscar ID de usuario en los fields o description
-  const text = (embed.description || '') + ' ' + (embed.fields?.map(f => f.value).join(' ') || '');
-  const match = text.match(/<@!?(\d+)>/);
-  if (match) userId = match[1];
-
-  if (!userId) {
-    console.log('No se encontró usuario en el log');
+  if (!title.includes('closed') && !description.includes('closed') && !title.includes('cerrado') && !description.includes('cerrado')) {
     return;
   }
 
-  // Por ahora registramos una compra básica (podés mejorar la extracción después)
+  console.log('Ticket cerrado detectado');
+
+  const fullText = (embed.description || '') + ' ' + (embed.fields?.map(f => `${f.name}: ${f.value}`).join(' ') || '');
+  const userMatch = fullText.match(/<@!?(\d+)>/);
+  const userId = userMatch ? userMatch[1] : null;
+
+  if (!userId) {
+    console.log('No se encontró usuario');
+    return;
+  }
+
+  const referencia = embed.fields?.find(f => f.name.toLowerCase().includes('ticket'))?.value || 'ticket';
+  const pais = embed.fields?.find(f => f.name.toLowerCase().includes('país') || f.name.toLowerCase().includes('country'))?.value || 'No especificado';
+
   if (!compradores[userId]) compradores[userId] = { robux: 0, dinero: 0, compras: 0 };
   compradores[userId].compras += 1;
   saveCompras();
@@ -216,26 +220,41 @@ client.on('messageCreate', async (message) => {
   const guild = message.guild;
   if (guild) await asignarRolComprador(guild, userId, compradores[userId].dinero);
 
-  // Enviar al canal de vouch
   const vouchChannel = client.channels.cache.get(VOUCH_CHANNEL_ID);
   if (vouchChannel) {
     const vouchEmbed = new EmbedBuilder()
       .setColor(0x00ff88)
       .setAuthor({ name: '✵•.¸,✵°✵.｡.✰ ℍ𝕒𝕚𝕕𝕖𝕟 𝕊𝕥𝕠𝕣𝕖 🌙 ✰.｡.✵°✵,¸.•✵´' })
-      .setTitle('✅ Ticket cerrado')
-      .setDescription(`Ticket procesado para <@${userId}>\n🔖 Referencia: \`${ticketName}\``)
-      .setFooter({ text: 'ʜᴀɪᴅᴇɴ ꜱᴛᴏʀᴇ 🌙' });
+      .setTitle('🛒 Nueva compra registrada')
+      .setDescription(`# <@${userId}>\nha realizado una compra en **Haiden Store**`)
+      .addFields(
+        { name: '👤 Cliente', value: `<@${userId}>`, inline: true },
+        { name: '🔖 Referencia', value: referencia, inline: true },
+        { name: '🌍 País', value: pais, inline: true },
+        { name: '📦 Compra', value: 'Robux', inline: true },
+        { name: '💵 Precio', value: 'No especificado', inline: true },
+        { name: '🏆 Rango', value: 'Buyer', inline: true }
+      )
+      .setFooter({ text: 'ʜᴀɪᴅᴇɴ ꜱᴛᴏʀᴇ 🌙' })
+      .setTimestamp();
     await vouchChannel.send({ embeds: [vouchEmbed] });
   }
 
-  // Intentar DM
   try {
     const user = await client.users.fetch(userId);
     const dmEmbed = new EmbedBuilder()
       .setColor(0x00ff88)
       .setAuthor({ name: '✵•.¸,✵°✵.｡.✰ ℍ𝕒𝕚𝕕𝕖𝕟 𝕊𝕥𝕠𝕣𝕖 🌙 ✰.｡.✵°✵,¸.•✵´' })
       .setTitle('✅ Tu ticket ha sido cerrado')
-      .setDescription(`Hola, tu ticket en **Haiden Store** ha sido procesado.\n\nGracias por tu compra ❤️`)
+      .setDescription(
+        `Hola, tu ticket en **Haiden Store** ha sido procesado.\n\n` +
+        `🔖 **Referencia:** \`${referencia}\`\n` +
+        `🌍 **País:** ${pais}\n` +
+        `📦 **Tipo de compra:** Robux\n` +
+        `📅 **Cerrado:** <t:${Math.floor(Date.now() / 1000)}:f>\n\n` +
+        `━━━━━━━━━━━━━━━━━━━━\n` +
+        `Gracias por tu compra ❤️`
+      )
       .setFooter({ text: 'ʜᴀɪᴅᴇɴ ꜱᴛᴏʀᴇ 🌙' });
     await user.send({ embeds: [dmEmbed] });
   } catch (e) {
