@@ -15,8 +15,8 @@ const EMOJI_RED = '<a:EMOJIALERTRED:1574998814769680475>';
 const EMOJI_ORANGE = '<a:EMOJIALERTORANGE:1574998744510767144>';
 const EMOJI_ROBLOX = '<:Roblox:1518984627593805986>';
 const EMOJI_ROBUX = '<:robux:1476751095991632017>';
-const EMOJI_STAR = '<:star~1:1477863237252022493>';
-const EMOJI_FELIZ = '<:feliz:1502438386286329886>';
+const EMOJI_STAR = '<:star:1477863237252022493>';
+const EMOJI_FELIZ = '<a:feliz:1502438386286329886>';
 const EMOJI_MONEY = '💸';
 const EMOJI_BAGS = '🛍️';
 const EMOJI_FIRE = '<a:bluefire:1472319351335030998>';
@@ -105,6 +105,13 @@ async function getRobloxUserId(username) {
   } catch { return null; }
 }
 
+async function getRobloxAvatar(userId) {
+  try {
+    const res = await axios.get(`https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${userId}&size=420x420&format=Png&isCircular=false`);
+    return res.data.data[0]?.imageUrl || null;
+  } catch { return null; }
+}
+
 async function getMembership(groupId, userId) {
   try {
     const res = await axios.get(`https://apis.roblox.com/cloud/v2/groups/${groupId}/memberships`, {
@@ -164,6 +171,8 @@ client.on('interactionCreate', async interaction => {
     const userId = await getRobloxUserId(username);
     if (!userId) return interaction.editReply('❌ Usuario no encontrado.');
 
+    const avatar = await getRobloxAvatar(userId);
+
     const results = [];
     let eligible = 0, waiting = 0, notIn = 0;
     for (const g of GROUPS) {
@@ -200,6 +209,7 @@ client.on('interactionCreate', async interaction => {
       .setAuthor({ name: '✵•.¸,✵°✵.｡.✰ ℍ𝕒𝕚𝕕𝕖𝕟 𝕊𝕥𝕠𝕣𝕖 🌙 ✰.｡.✵°✵,¸.•✵´' })
       .setTitle(`🔍 Verificación de ${username}`)
       .setDescription(desc.slice(0, 4096))
+      .setThumbnail(avatar)
       .setFooter({ text: 'ʜᴀɪᴅᴇɴ ꜱᴛᴏʀᴇ 🌙' });
 
     await interaction.editReply({ embeds: [embed] });
