@@ -275,7 +275,6 @@ client.once('ready', async () => {
 });
 
 client.on('messageCreate', async (message) => {
-  // Detección de ticket cerrado
   if (message.channel.id === CLOSED_TICKETS_LOG_CHANNEL && message.author.bot && message.embeds.length) {
     const embed = message.embeds[0];
     if (embed.title && embed.title.toLowerCase().includes('ticket closed')) {
@@ -312,7 +311,6 @@ client.on('messageCreate', async (message) => {
     return;
   }
 
-  // Comandos con !
   if (message.author.bot || !message.content.startsWith(PREFIX)) return;
   const args = message.content.slice(PREFIX.length).trim().split(/ +/);
   const command = args.shift().toLowerCase();
@@ -378,25 +376,29 @@ client.on('interactionCreate', async interaction => {
     const sesion = sesiones.get(interaction.user.id);
     if (!sesion) return interaction.reply({ content: 'Usá `!pagocon` primero.', ephemeral: true });
 
-    if (interaction.customId.startsWith('pais_')) {
-      const pais = interaction.customId.replace('pais_', '');
-      sesion.pais = pais;
-      sesion.paso = 'metodo';
-      await interaction.update({
-        content: `${EMOJI_VERI} País seleccionado: **${PAISES[pais].nombre}**\n\nAhora elegí el método de envío:`,
-        components: crearBotonesMetodo(),
-        embeds: []
-      });
-    }
+    try {
+      if (interaction.customId.startsWith('pais_')) {
+        const pais = interaction.customId.replace('pais_', '');
+        sesion.pais = pais;
+        sesion.paso = 'metodo';
+        await interaction.update({
+          content: `${EMOJI_VERI} País seleccionado: **${PAISES[pais].nombre}**\n\nAhora elegí el método de envío:`,
+          components: crearBotonesMetodo(),
+          embeds: []
+        });
+      }
 
-    if (interaction.customId.startsWith('metodo_')) {
-      const metodo = interaction.customId.replace('metodo_', '');
-      sesion.metodo = metodo;
-      sesion.paso = 'cantidad';
-      await interaction.update({
-        content: `${EMOJI_VERI} Método: **${METODOS_ROBUX[metodo].nombre}**\n\nEscribí la cantidad de Robux:\n\`!cantidad 1000\``,
-        components: []
-      });
+      if (interaction.customId.startsWith('metodo_')) {
+        const metodo = interaction.customId.replace('metodo_', '');
+        sesion.metodo = metodo;
+        sesion.paso = 'cantidad';
+        await interaction.update({
+          content: `${EMOJI_VERI} Método: **${METODOS_ROBUX[metodo].nombre}**\n\nEscribí la cantidad de Robux:\n\`!cantidad 1000\``,
+          components: []
+        });
+      }
+    } catch (e) {
+      console.log('Error en botón:', e);
     }
     return;
   }
