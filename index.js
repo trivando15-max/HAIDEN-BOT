@@ -112,7 +112,8 @@ function extractDataFromMessages(messages) {
     compra: getValue('compra'),
     precio: getValue('precio'),
     total: getValue('total'),
-    rango: getValue('rango')
+    rango: getValue('rango'),
+    via: getValue('via') || getValue('robux via')
   };
 }
 
@@ -228,7 +229,8 @@ client.on('messageCreate', async (message) => {
         { name: '👤 Cliente', value: `<@${userId}>`, inline: true },
         { name: '🔖 Referencia', value: ticketName, inline: true },
         { name: '📦 Compra', value: 'Robux', inline: true },
-        { name: '💵 Precio', value: 'No especificado', inline: true }
+        { name: '💵 Precio', value: 'No especificado', inline: true },
+        { name: '📦 Robux Via', value: 'No especificado', inline: true }
       )
       .setFooter({ text: 'ʜᴀɪᴅᴇɴ ꜱᴛᴏʀᴇ 🌙' })
       .setTimestamp();
@@ -245,6 +247,7 @@ client.on('messageCreate', async (message) => {
         `Hola, tu ticket en **Haiden Store** ha sido procesado.\n\n` +
         `🔖 **Referencia:** \`${ticketName}\`\n` +
         `📦 **Tipo de compra:** Robux\n` +
+        `📦 **Robux Via:** No especificado\n` +
         `📅 **Cerrado:** <t:${Math.floor(Date.now() / 1000)}:f>\n\n` +
         `Gracias por tu compra ❤️`
       )
@@ -315,6 +318,7 @@ client.on('interactionCreate', async interaction => {
     const precio = auto.precio || 'No especificado';
     const total = auto.total || compra;
     const rango = auto.rango || 'Buyer';
+    const via = auto.via || 'No especificado';
 
     const uidMatch = discordUser.match(/\d+/);
     if (uidMatch) {
@@ -345,6 +349,7 @@ client.on('interactionCreate', async interaction => {
         { name: '📦 Compra', value: compra, inline: true },
         { name: '💵 Precio', value: precio, inline: true },
         { name: '📊 Total', value: total, inline: true },
+        { name: '📦 Robux Via', value: via, inline: true },
         { name: '🏆 Rango', value: rango, inline: true }
       )
       .setFooter({ text: 'ʜᴀɪᴅᴇɴ ꜱᴛᴏʀᴇ 🌙' })
