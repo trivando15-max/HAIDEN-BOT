@@ -10,11 +10,10 @@ const PREFIX = '!';
 const VOUCH_CHANNEL_ID = '1470667210778214675';
 const COMPRAS_FILE = './compras.json';
 
-const EMOJI_VERI = '<:EMOJIVERI:1574998893689577523>';
-const EMOJI_RED = '<:EMOJIALERTRED:1574998814769680475>';
-const EMOJI_ORANGE = '<:EMOJIALERTORANGE:1574998744510767144>';
+const EMOJI_VERI = '<a:EMOJIVERI:1574998893689577523>';
+const EMOJI_RED = '<a:EMOJIALERTRED:1574998814769680475>';
+const EMOJI_ORANGE = '<a:EMOJIALERTORANGE:1574998744510767144>';
 const EMOJI_ROBLOX = '<:Roblox:1518984627593805986>';
-
 const GROUPS = [
   { id: 35619576, name: "ANIME UGC'S CREATOR", requiredDays: 15, url: "https://www.roblox.com/groups/35619576" },
   { id: 34564860, name: "Comunidad Celestial RBLX", requiredDays: 15, url: "https://www.roblox.com/groups/34564860" },
