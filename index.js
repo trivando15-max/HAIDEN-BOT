@@ -159,7 +159,6 @@ async function getMembership(groupId, userId) {
   } catch { return null; }
 }
 
-// Binance P2P
 async function getBinanceP2PPrice(fiat) {
   try {
     const res = await axios.get('https://www.binance.com/bapi/c2c/v1/public/c2c/agent/quote-price', {
@@ -168,7 +167,7 @@ async function getBinanceP2PPrice(fiat) {
     });
     const price = parseFloat(res.data?.data?.price || 0);
     if (!price) return null;
-    return price * 1.016; // +1.6%
+    return price * 1.016;
   } catch (e) {
     console.log('Error Binance:', e.message);
     return null;
@@ -184,46 +183,66 @@ function getPrecioRobuxUSDT(metodo, cantidad) {
   return m.precio;
 }
 
-async function calcularPrecio(paisKey, cantidad, metodo) {
+async function calcularPrecio(paisKey, cantidad, metodo, tipo) {
   const pais = PAISES[paisKey];
   if (!pais) return null;
 
-  const precioUSDT = getPrecioRobuxUSDT(metodo, cantidad);
-  if (!precioUSDT) return null;
+  let precioUSDT;
+  let robuxFinal = cantidad;
 
-  let totalUSDT = (cantidad / 1000) * precioUSDT;
+  if (tipo === 'robux_a_dinero') {
+    precioUSDT = getPrecioRobuxUSDT(metodo, cantidad);
+    if (!precioUSDT) return null;
+    precioUSDT = (cantidad / 1000) * precioUSDT;
+  } else {
+    // dinero a robux
+    const precioBase = getPrecioRobuxUSDT(metodo, 1000);
+    if (!precioBase) return null;
+    precioUSDT = cantidad;
+    robuxFinal = Math.floor((cantidad / precioBase) * 1000);
+  }
 
-  // Comisiones
-  if (pais.moneda === 'USD') totalUSDT *= 1.05;
-  else if (pais.moneda !== 'EUR' && pais.moneda !== 'USDT') totalUSDT *= 1.02;
+  if (pais.moneda === 'USD') precioUSDT *= 1.05;
+  else if (pais.moneda !== 'EUR' && pais.moneda !== 'USDT') precioUSDT *= 1.02;
 
-  let precioLocal = totalUSDT;
+  let precioLocal = precioUSDT;
   let moneda = 'USDT';
 
   if (pais.fiat) {
     const tasa = await getBinanceP2PPrice(pais.fiat);
     if (tasa) {
-      precioLocal = totalUSDT * tasa;
+      precioLocal = precioUSDT * tasa;
       moneda = pais.moneda;
     }
   } else if (pais.moneda === 'EUR') {
-    // Revolut aproximado (se puede mejorar después)
-    precioLocal = totalUSDT * 0.93;
+    precioLocal = precioUSDT * 0.93;
     moneda = 'EUR';
   }
 
-  return { precioLocal, moneda, precioUSDT: totalUSDT, metodo: METODOS_ROBUX[metodo].nombre };
+  return {
+    precioLocal,
+    moneda,
+    precioUSDT,
+    metodo: METODOS_ROBUX[metodo].nombre,
+    robux: robuxFinal
+  };
 }
 
-function crearEmbedPrecio(paisKey, cantidad, metodo) {
-  return calcularPrecio(paisKey, cantidad, metodo).then(result => {
+function crearEmbedPrecio(paisKey, cantidad, metodo, tipo) {
+  return calcularPrecio(paisKey, cantidad, metodo, tipo).then(result => {
     if (!result) return null;
     const p = PAISES[paisKey];
+    const tituloCantidad = tipo === 'robux_a_dinero'
+      ? `${EMOJI_ROBUX} **Cantidad:**\n\`${cantidad.toLocaleString()} Robux\``
+      : `💰 **Cantidad:**\n\`${cantidad.toLocaleString()} ${result.moneda}\``;
+
     const desc = `### ${p.flag} ${p.nombre}\n\n` +
-      `${EMOJI_ROBUX} **Cantidad:**\n\`${cantidad.toLocaleString()} Robux\`\n\n` +
+      tituloCantidad + `\n\n` +
       `📦 **Método:** ${result.metodo}\n\n` +
-      `💰 **Precio total:**\n# \`${result.precioLocal.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${result.moneda}\`\n\n` +
-      `📊 **Equivalente:** \`${result.precioUSDT.toFixed(2)} USDT\`\n\n` +
+      (tipo === 'robux_a_dinero'
+        ? `💰 **Precio total:**\n# \`${result.precioLocal.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${result.moneda}\``
+        : `${EMOJI_ROBUX} **Robux:**\n# \`${result.robux.toLocaleString()} Robux\``) +
+      `\n\n📊 **Equivalente:** \`${result.precioUSDT.toFixed(2)} USDT\`\n\n` +
       `━━━━━━━━━━━━━━━━━━━━\n\n🛍️ **Haiden Store**\n_Cotización automática_`;
 
     return new EmbedBuilder()
@@ -245,8 +264,12 @@ client.once('ready', async () => {
     new SlashCommandBuilder().setName('top').setDescription('Top compradores'),
     new SlashCommandBuilder().setName('perfil').setDescription('Tu perfil de comprador').addUserOption(o => o.setName('usuario').setDescription('Usuario').setRequired(false)),
     new SlashCommandBuilder().setName('precio').setDescription('Calculadora de precios')
+      .addStringOption(o => o.setName('tipo').setDescription('Tipo de cálculo').setRequired(true).addChoices(
+        { name: 'Robux → Dinero', value: 'robux_a_dinero' },
+        { name: 'Dinero → Robux', value: 'dinero_a_robux' }
+      ))
       .addStringOption(o => o.setName('metodo').setDescription('Método de envío').setRequired(true).addChoices(...metodoChoices))
-      .addNumberOption(o => o.setName('cantidad').setDescription('Cantidad de Robux').setRequired(true))
+      .addNumberOption(o => o.setName('cantidad').setDescription('Cantidad').setRequired(true))
       .addStringOption(o => o.setName('pais').setDescription('País').setRequired(true).addChoices(...paisChoices))
   ].map(c => c.toJSON());
 
@@ -457,10 +480,11 @@ client.on('interactionCreate', async interaction => {
 
   if (interaction.commandName === 'precio') {
     await interaction.deferReply();
+    const tipo = interaction.options.getString('tipo');
     const metodo = interaction.options.getString('metodo');
     const cantidad = interaction.options.getNumber('cantidad');
     const pais = interaction.options.getString('pais');
-    const embed = await crearEmbedPrecio(pais, cantidad, metodo);
+    const embed = await crearEmbedPrecio(pais, cantidad, metodo, tipo);
     if (!embed) return interaction.editReply('❌ No se pudo calcular el precio.');
     await interaction.editReply({ embeds: [embed] });
   }
@@ -476,20 +500,8 @@ client.on('messageCreate', async message => {
       .setColor(0x5865F2)
       .setAuthor({ name: '✵•.¸,✵°✵.｡.✰ ℍ𝕒𝕚𝕕𝕖𝕟 𝕊𝕥𝕠𝕣𝕖 🌙 ✰.｡.✵°✵,¸.•✵´' })
       .setTitle('📖 Lista de Comandos')
-      .setDescription('# Comandos disponibles\n\n**Con `!`:**\n`!verificar usuario`\n`!vouch`\n`!top`\n`!perfil`\n`!precio grupo 10000 argentina`\n\n**También funcionan con `/`**')
+      .setDescription('# Comandos disponibles\n\n**Con `!`:**\n`!verificar usuario`\n`!vouch`\n`!top`\n`!perfil`\n`!precio`\n\n**También funcionan con `/`**')
       .setFooter({ text: 'ʜᴀɪᴅᴇɴ ꜱᴛᴏʀᴇ 🌙' });
-    await message.reply({ embeds: [embed] });
-  }
-
-  if (command === 'precio' || command === 'prices') {
-    const metodo = args[0];
-    const cantidad = parseFloat(args[1]);
-    const paisInput = args.slice(2).join(' ').toLowerCase();
-    if (!metodo || !cantidad || !paisInput) return message.reply('Usá: `!precio grupo 10000 argentina`');
-    const paisKey = Object.keys(PAISES).find(k => PAISES[k].nombre.toLowerCase().includes(paisInput) || k.includes(paisInput));
-    if (!paisKey) return message.reply('❌ País no encontrado.');
-    const embed = await crearEmbedPrecio(paisKey, cantidad, metodo);
-    if (!embed) return message.reply('❌ No se pudo calcular.');
     await message.reply({ embeds: [embed] });
   }
 });
