@@ -25,7 +25,7 @@ const GROUPS = [
   { id: 35619576, name: "ANIME UGC'S CREATOR", requiredDays: 15, url: "https://www.roblox.com/groups/35619576" },
   { id: 34564860, name: "Comunidad Celestial RBLX", requiredDays: 15, url: "https://www.roblox.com/groups/34564860" },
   { id: 13080841, name: "Gorra Shop", requiredDays: 15, url: "https://www.roblox.com/groups/13080841" },
-  { id: 15119364, name: "ＢＬＡＣＫ ＣＡＴ＄ ＵＧC", requiredDays: 15, url: "https://www.roblox.com/groups/15119364" },
+  { id: 15119364, name: "ＢＬＡ𝐂Ｋ ＣＡＴ＄ ＵＧC", requiredDays: 15, url: "https://www.roblox.com/groups/15119364" },
   { id: 33422152, name: "nxtrnd", requiredDays: 15, url: "https://www.roblox.com/groups/33422152" },
   { id: 33332820, name: "Random Island", requiredDays: 15, url: "https://www.roblox.com/groups/33332820" },
   { id: 35816914, name: "One Ugc man", requiredDays: 15, url: "https://www.roblox.com/groups/35816914" },
@@ -127,17 +127,30 @@ async function getMembership(groupId, userId) {
 function crearEmbedPrecio(paisKey, cantidad, tipo) {
   const p = PAISES[paisKey];
   if (!p) return null;
-  const pn = p.normal, pd = p.descuento;
+  const pn = p.normal;
+  const pd = p.descuento;
+
   let desc;
   if (tipo === 'a_robux') {
     const robuxN = Math.floor((cantidad / pn) * 1000);
     const robuxD = Math.floor((cantidad / pd) * 1000);
-    desc = `# ${robuxN.toLocaleString()} Robux\n\n${p.flag} **${p.nombre}**\n💵 **Monto ingresado:** \`${cantidad} ${p.moneda}\`\n📦 **Recibirás:** \`${robuxN.toLocaleString()} Robux\`\n\n🔥 **Con descuento (30k+):** **${robuxD.toLocaleString()} Robux**\n━━━━━━━━━━━━━━━━━━━━\n*Tarifa:* \`${pn} ${p.moneda} / 1.000 Robux\``;
+    desc = `### ${p.flag} ${p.nombre}\n\n` +
+           `${EMOJI_ROBUX} **Cantidad:**\n\`${robuxN.toLocaleString()} Robux\`\n\n` +
+           `💰 **Precio total:**\n# \`${cantidad} ${p.moneda}\`\n\n` +
+           `📊 **Tarifa:** \`${pn} ${p.moneda} / 1.000 Robux\`\n\n` +
+           `━━━━━━━━━━━━━━━━━━━━\n\n` +
+           `🛍️ **Haiden Store**\n_Cotización automática de Robux_`;
   } else {
     const dineroN = (cantidad / 1000 * pn).toFixed(2);
     const dineroD = (cantidad / 1000 * pd).toFixed(2);
-    desc = `# ${dineroN} ${p.moneda}\n\n${p.flag} **${p.nombre}**\n📦 **Robux ingresados:** \`${cantidad.toLocaleString()}\`\n💵 **Costo:** \`${dineroN} ${p.moneda}\`\n\n🔥 **Con descuento (30k+):** **${dineroD} ${p.moneda}**\n━━━━━━━━━━━━━━━━━━━━\n*Tarifa:* \`${pn} ${p.moneda} / 1.000 Robux\``;
+    desc = `### ${p.flag} ${p.nombre}\n\n` +
+           `${EMOJI_ROBUX} **Cantidad:**\n\`${cantidad.toLocaleString()} Robux\`\n\n` +
+           `💰 **Precio total:**\n# \`${dineroN} ${p.moneda}\`\n\n` +
+           `📊 **Tarifa:** \`${pn} ${p.moneda} / 1.000 Robux\`\n\n` +
+           `━━━━━━━━━━━━━━━━━━━━\n\n` +
+           `🛍️ **Haiden Store**\n_Cotización automática de Robux_`;
   }
+
   return new EmbedBuilder()
     .setColor(0x00ff88)
     .setAuthor({ name: '✵•.¸,✵°✵.｡.✰ ℍ𝕒𝕚𝕕𝕖𝕟 𝕊𝕥𝕠𝕣𝕖 🌙 ✰.｡.✵°✵,¸.•✵´' })
@@ -182,7 +195,8 @@ client.on('interactionCreate', async interaction => {
       else { waiting++; results.push({ ...g, status: 'waiting', days: m.days }); }
     }
 
-    let desc = `🌐 **RESUMEN DE VERIFICACIÓN**\n`;
+    let desc = `# ${EMOJI_FELIZ} **Verificación de ${username}**\n\n`;
+    desc += `🌐 **RESUMEN DE VERIFICACIÓN**\n`;
     desc += `${EMOJI_VERI} **${eligible}** elegibles  ${EMOJI_ORANGE} **${waiting}** en espera  ${EMOJI_RED} **${notIn}** sin unirse\n`;
     desc += `**${GROUPS.length}** grupos configurados\n\n`;
 
@@ -207,7 +221,6 @@ client.on('interactionCreate', async interaction => {
     const embed = new EmbedBuilder()
       .setColor(0x5865F2)
       .setAuthor({ name: '✵•.¸,✵°✵.｡.✰ ℍ𝕒𝕚𝕕𝕖𝕟 𝕊𝕥𝕠𝕣𝕖 🌙 ✰.｡.✵°✵,¸.•✵´' })
-      .setTitle(`🔍 Verificación de ${username}`)
       .setDescription(desc.slice(0, 4096))
       .setThumbnail(avatar)
       .setFooter({ text: 'ʜᴀɪᴅᴇɴ ꜱᴛᴏʀᴇ 🌙' });
@@ -245,7 +258,6 @@ client.on('interactionCreate', async interaction => {
     const ch = client.channels.cache.get(VOUCH_CHANNEL_ID);
     if (!ch) return interaction.editReply('❌ Canal no encontrado');
     const embed = new EmbedBuilder()
-      .setTitle('🛒 ¡Nueva compra registrada!')
       .setColor(0x00ff88)
       .setAuthor({ name: '✵•.¸,✵°✵.｡.✰ ℍ𝕒𝕚𝕕𝕖𝕟 𝕊𝕥𝕠𝕣𝕖 🌙 ✰.｡.✵°✵,¸.•✵´' })
       .setDescription(`# ${cliente}\nha realizado una compra en **Haiden Store**`)
@@ -267,11 +279,19 @@ client.on('interactionCreate', async interaction => {
   if (interaction.commandName === 'top') {
     const sorted = Object.entries(compradores).sort((a, b) => b[1].robux - a[1].robux).slice(0, 10);
     if (!sorted.length) return interaction.reply('Todavía no hay datos.');
+
+    let desc = '# 🏆 Los compradores más destacados\n\n';
+    sorted.forEach(([id, d], i) => {
+      desc += `**#${i + 1}** <@${id}>\n`;
+      desc += `${EMOJI_ROBUX} **${d.robux.toLocaleString()}** Robux • 💰 $${d.dinero.toFixed(2)} USD\n`;
+      desc += `🛍️ ${d.compras} compra(s)\n`;
+      if (i < sorted.length - 1) desc += '\n━━━━━━━━━━━━━━━━━━━━\n\n';
+    });
+
     const embed = new EmbedBuilder()
       .setColor(0xFFD700)
       .setAuthor({ name: '✵•.¸,✵°✵.｡.✰ ℍ𝕒𝕚𝕕𝕖𝕟 𝕊𝕥𝕠𝕣𝕖 🌙 ✰.｡.✵°✵,¸.•✵´' })
-      .setTitle('🏆 TOP COMPRADORES')
-      .setDescription('# Los mejores compradores\n\n' + sorted.map(([id, d], i) => `**#${i+1}** <@${id}>\n📦 **${d.robux.toLocaleString()}** Robux • 💰 $${d.dinero.toFixed(2)}`).join('\n\n'))
+      .setDescription(desc)
       .setFooter({ text: 'ʜᴀɪᴅᴇɴ ꜱᴛᴏʀᴇ 🌙' });
     await interaction.reply({ embeds: [embed] });
   }
@@ -287,7 +307,7 @@ client.on('interactionCreate', async interaction => {
       .setAuthor({ name: '✵•.¸,✵°✵.｡.✰ ℍ𝕒𝕚𝕕𝕖𝕟 𝕊𝕥𝕠𝕣𝕖 🌙 ✰.｡.✵°✵,¸.•✵´' })
       .setThumbnail(user.displayAvatarURL({ size: 256 }))
       .setDescription(
-        `${EMOJI_FELIZ} **𝐏𝐞𝐫𝐟𝐢𝐥 𝐝𝐞:** ${user.username}\n\n` +
+        `# ${EMOJI_FELIZ} **𝐏𝐞𝐫𝐟𝐢𝐥 𝐝𝐞:** ${user.username}\n\n` +
         `${EMOJI_STAR} **𝐑𝐀𝐍𝐆𝐎**\n${actual.nombre}\n\n` +
         `${EMOJI_ROBUX} **𝐑𝐎𝐁𝐔𝐗 𝐂𝐎𝐌𝐏𝐑𝐀𝐃𝐎𝐒**\n${data.robux.toLocaleString()}\n\n` +
         `${EMOJI_MONEY} **𝐃𝐈𝐍𝐄𝐑𝐎 𝐆𝐀𝐒𝐓𝐀𝐃𝐎**\n$${data.dinero.toFixed(2)}\n\n` +
