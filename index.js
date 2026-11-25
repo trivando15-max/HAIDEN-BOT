@@ -14,6 +14,13 @@ const EMOJI_VERI = '<a:EMOJIVERI:1574998893689577523>';
 const EMOJI_RED = '<a:EMOJIALERTRED:1574998814769680475>';
 const EMOJI_ORANGE = '<a:EMOJIALERTORANGE:1574998744510767144>';
 const EMOJI_ROBLOX = '<:Roblox:1518984627593805986>';
+const EMOJI_ROBUX = '<:robux:1476751095991632017>';
+const EMOJI_STAR = '<:star~1:1477863237252022493>';
+const EMOJI_FELIZ = '<:feliz:1502438386286329886>';
+const EMOJI_MONEY = '💸';
+const EMOJI_BAGS = '🛍️';
+const EMOJI_FIRE = '<a:bluefire:1472319351335030998>';
+
 const GROUPS = [
   { id: 35619576, name: "ANIME UGC'S CREATOR", requiredDays: 15, url: "https://www.roblox.com/groups/35619576" },
   { id: 34564860, name: "Comunidad Celestial RBLX", requiredDays: 15, url: "https://www.roblox.com/groups/34564860" },
@@ -124,7 +131,11 @@ function crearEmbedPrecio(paisKey, cantidad, tipo) {
     const dineroD = (cantidad / 1000 * pd).toFixed(2);
     desc = `# ${dineroN} ${p.moneda}\n\n${p.flag} **${p.nombre}**\n📦 **Robux ingresados:** \`${cantidad.toLocaleString()}\`\n💵 **Costo:** \`${dineroN} ${p.moneda}\`\n\n🔥 **Con descuento (30k+):** **${dineroD} ${p.moneda}**\n━━━━━━━━━━━━━━━━━━━━\n*Tarifa:* \`${pn} ${p.moneda} / 1.000 Robux\``;
   }
-  return new EmbedBuilder().setColor(0x00ff88).setAuthor({ name: 'Haiden Store • Calculadora' }).setDescription(desc).setFooter({ text: 'Haiden Store' });
+  return new EmbedBuilder()
+    .setColor(0x00ff88)
+    .setAuthor({ name: '✵•.¸,✵°✵.｡.✰ ℍ𝕒𝕚𝕕𝕖𝕟 𝕊𝕥𝕠𝕣𝕖 🌙 ✰.｡.✵°✵,¸.•✵´' })
+    .setDescription(desc)
+    .setFooter({ text: 'ʜᴀɪᴅᴇɴ ꜱᴛᴏʀᴇ 🌙' });
 }
 
 client.once('ready', async () => {
@@ -186,9 +197,10 @@ client.on('interactionCreate', async interaction => {
 
     const embed = new EmbedBuilder()
       .setColor(0x5865F2)
+      .setAuthor({ name: '✵•.¸,✵°✵.｡.✰ ℍ𝕒𝕚𝕕𝕖𝕟 𝕊𝕥𝕠𝕣𝕖 🌙 ✰.｡.✵°✵,¸.•✵´' })
       .setTitle(`🔍 Verificación de ${username}`)
       .setDescription(desc.slice(0, 4096))
-      .setFooter({ text: 'Haiden Store • Roblox Open Cloud' });
+      .setFooter({ text: 'ʜᴀɪᴅᴇɴ ꜱᴛᴏʀᴇ 🌙' });
 
     await interaction.editReply({ embeds: [embed] });
   }
@@ -222,8 +234,12 @@ client.on('interactionCreate', async interaction => {
 
     const ch = client.channels.cache.get(VOUCH_CHANNEL_ID);
     if (!ch) return interaction.editReply('❌ Canal no encontrado');
-    const embed = new EmbedBuilder().setTitle('🛒 ¡Nueva compra registrada!').setColor(0x00ff88)
-      .setDescription(`# ${cliente}\nha realizado una compra en **Haiden Store**`).setThumbnail(thumb)
+    const embed = new EmbedBuilder()
+      .setTitle('🛒 ¡Nueva compra registrada!')
+      .setColor(0x00ff88)
+      .setAuthor({ name: '✵•.¸,✵°✵.｡.✰ ℍ𝕒𝕚𝕕𝕖𝕟 𝕊𝕥𝕠𝕣𝕖 🌙 ✰.｡.✵°✵,¸.•✵´' })
+      .setDescription(`# ${cliente}\nha realizado una compra en **Haiden Store**`)
+      .setThumbnail(thumb)
       .addFields(
         { name: '👤 Cliente', value: discordUser, inline: true },
         { name: '🔖 Referencia', value: referencia, inline: true },
@@ -231,7 +247,9 @@ client.on('interactionCreate', async interaction => {
         { name: '💵 Precio', value: precio, inline: true },
         { name: '📊 Total', value: total, inline: true },
         { name: '🏆 Rango', value: rango, inline: true }
-      ).setFooter({ text: 'Haiden Store • Autovouch' }).setTimestamp();
+      )
+      .setFooter({ text: 'ʜᴀɪᴅᴇɴ ꜱᴛᴏʀᴇ 🌙' })
+      .setTimestamp();
     await ch.send({ embeds: [embed] });
     await interaction.editReply('✅ Vouch publicado');
   }
@@ -239,8 +257,12 @@ client.on('interactionCreate', async interaction => {
   if (interaction.commandName === 'top') {
     const sorted = Object.entries(compradores).sort((a, b) => b[1].robux - a[1].robux).slice(0, 10);
     if (!sorted.length) return interaction.reply('Todavía no hay datos.');
-    const embed = new EmbedBuilder().setTitle('🏆 TOP COMPRADORES').setColor(0xFFD700)
-      .setDescription('# Los mejores compradores\n\n' + sorted.map(([id, d], i) => `**#${i+1}** <@${id}>\n📦 **${d.robux.toLocaleString()}** Robux • 💰 $${d.dinero.toFixed(2)}`).join('\n\n'));
+    const embed = new EmbedBuilder()
+      .setColor(0xFFD700)
+      .setAuthor({ name: '✵•.¸,✵°✵.｡.✰ ℍ𝕒𝕚𝕕𝕖𝕟 𝕊𝕥𝕠𝕣𝕖 🌙 ✰.｡.✵°✵,¸.•✵´' })
+      .setTitle('🏆 TOP COMPRADORES')
+      .setDescription('# Los mejores compradores\n\n' + sorted.map(([id, d], i) => `**#${i+1}** <@${id}>\n📦 **${d.robux.toLocaleString()}** Robux • 💰 $${d.dinero.toFixed(2)}`).join('\n\n'))
+      .setFooter({ text: 'ʜᴀɪᴅᴇɴ ꜱᴛᴏʀᴇ 🌙' });
     await interaction.reply({ embeds: [embed] });
   }
 
@@ -249,14 +271,21 @@ client.on('interactionCreate', async interaction => {
     const data = compradores[user.id] || { robux: 0, dinero: 0, compras: 0 };
     const { actual, siguiente } = getRango(data.robux);
     const faltan = siguiente ? siguiente.robux - data.robux : 0;
-    const embed = new EmbedBuilder().setTitle(`📊 Perfil de ${user.username}`).setColor(0x5865F2).setThumbnail(user.displayAvatarURL())
-      .setDescription(`# ${actual.nombre}`)
-      .addFields(
-        { name: '💎 Robux comprados', value: `**${data.robux.toLocaleString()}**`, inline: true },
-        { name: '💰 Dinero gastado', value: `**$${data.dinero.toFixed(2)}**`, inline: true },
-        { name: '🛒 Compras', value: `**${data.compras}**`, inline: true },
-        { name: '⬆️ Próximo rango', value: siguiente ? `**${siguiente.nombre}**\nFaltan **${faltan.toLocaleString()}** Robux` : '**Rango máximo**' }
-      );
+
+    const embed = new EmbedBuilder()
+      .setColor(0x5865F2)
+      .setAuthor({ name: '✵•.¸,✵°✵.｡.✰ ℍ𝕒𝕚𝕕𝕖𝕟 𝕊𝕥𝕠𝕣𝕖 🌙 ✰.｡.✵°✵,¸.•✵´' })
+      .setThumbnail(user.displayAvatarURL({ size: 256 }))
+      .setDescription(
+        `${EMOJI_FELIZ} **𝐏𝐞𝐫𝐟𝐢𝐥 𝐝𝐞:** ${user.username}\n\n` +
+        `${EMOJI_STAR} **𝐑𝐀𝐍𝐆𝐎**\n${actual.nombre}\n\n` +
+        `${EMOJI_ROBUX} **𝐑𝐎𝐁𝐔𝐗 𝐂𝐎𝐌𝐏𝐑𝐀𝐃𝐎𝐒**\n${data.robux.toLocaleString()}\n\n` +
+        `${EMOJI_MONEY} **𝐃𝐈𝐍𝐄𝐑𝐎 𝐆𝐀𝐒𝐓𝐀𝐃𝐎**\n$${data.dinero.toFixed(2)}\n\n` +
+        `${EMOJI_BAGS} **𝐂𝐎𝐌𝐏𝐑𝐀𝐒**\n${data.compras}\n\n` +
+        `${EMOJI_FIRE} **𝐏𝐑𝐎𝐗𝐈𝐌𝐎 𝐑𝐀𝐍𝐆𝐎:**\n${siguiente ? `${siguiente.nombre}\nFaltan ${faltan.toLocaleString()} Robux` : 'Rango máximo'}`
+      )
+      .setFooter({ text: 'ʜᴀɪᴅᴇɴ ꜱᴛᴏʀᴇ 🌙' });
+
     await interaction.reply({ embeds: [embed] });
   }
 
@@ -276,8 +305,12 @@ client.on('messageCreate', async message => {
   const command = args.shift().toLowerCase();
 
   if (command === 'help') {
-    const embed = new EmbedBuilder().setTitle('📖 Lista de Comandos').setColor(0x5865F2)
-      .setDescription('# Comandos disponibles\n\n**Con `!`:**\n`!verificar usuario`\n`!vouch`\n`!top`\n`!perfil`\n`!precio 10 argentina`\n\n**También funcionan con `/`**');
+    const embed = new EmbedBuilder()
+      .setColor(0x5865F2)
+      .setAuthor({ name: '✵•.¸,✵°✵.｡.✰ ℍ𝕒𝕚𝕕𝕖𝕟 𝕊𝕥𝕠𝕣𝕖 🌙 ✰.｡.✵°✵,¸.•✵´' })
+      .setTitle('📖 Lista de Comandos')
+      .setDescription('# Comandos disponibles\n\n**Con `!`:**\n`!verificar usuario`\n`!vouch`\n`!top`\n`!perfil`\n`!precio 10 argentina`\n\n**También funcionan con `/`**')
+      .setFooter({ text: 'ʜᴀɪᴅᴇɴ ꜱᴛᴏʀᴇ 🌙' });
     await message.reply({ embeds: [embed] });
   }
 
