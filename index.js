@@ -4,11 +4,18 @@ const fs = require('fs');
 const express = require('express');
 require('dotenv').config();
 
-const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent] });
+const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent, GatewayIntentBits.GuildMembers] });
 
 const PREFIX = '!';
 const VOUCH_CHANNEL_ID = '1574971863287992350';
 const COMPRAS_FILE = './compras.json';
+
+const ROLES_COMPRADORES = [
+  { id: '1477849576160493609', min: 2000 }, // Adinerados
+  { id: '1477849302452666419', min: 500 },  // Elites
+  { id: '1477848925183676487', min: 101 },  // Exclusivos
+  { id: '1477848696614817905', min: 0 }     // Regulares
+];
 
 const EMOJI_VERI = '<a:EMOJIVERI:1574998893689577523>';
 const EMOJI_RED = '<a:EMOJIALERTRED:1574998814769680475>';
@@ -25,7 +32,7 @@ const GROUPS = [
   { id: 35619576, name: "ANIME UGC'S CREATOR", requiredDays: 15, url: "https://www.roblox.com/groups/35619576" },
   { id: 34564860, name: "Comunidad Celestial RBLX", requiredDays: 15, url: "https://www.roblox.com/groups/34564860" },
   { id: 13080841, name: "Gorra Shop", requiredDays: 15, url: "https://www.roblox.com/groups/13080841" },
-  { id: 15119364, name: "ＢＬＡ𝐂Ｋ ＣＡ𝐓＄ ＵＧC", requiredDays: 15, url: "https://www.roblox.com/groups/15119364" },
+  { id: 15119364, name: "ＢＬＡＣＫ ＣＡＴ＄ ＵＧC", requiredDays: 15, url: "https://www.roblox.com/groups/15119364" },
   { id: 33422152, name: "nxtrnd", requiredDays: 15, url: "https://www.roblox.com/groups/33422152" },
   { id: 33332820, name: "Random Island", requiredDays: 15, url: "https://www.roblox.com/groups/33332820" },
   { id: 35816914, name: "One Ugc man", requiredDays: 15, url: "https://www.roblox.com/groups/35816914" },
@@ -70,6 +77,30 @@ function loadCompras() {
 }
 function saveCompras() { fs.writeFileSync(COMPRAS_FILE, JSON.stringify(compradores, null, 2)); }
 let compradores = loadCompras();
+
+async function asignarRolComprador(guild, userId, totalDinero) {
+  try {
+    const member = await guild.members.fetch(userId).catch(() => null);
+    if (!member) return;
+
+    const rolCorrespondiente = ROLES_COMPRADORES.find(r => totalDinero >= r.min);
+    if (!rolCorrespondiente) return;
+
+    // Quitar otros roles de comprador
+    for (const rol of ROLES_COMPRADORES) {
+      if (member.roles.cache.has(rol.id) && rol.id !== rolCorrespondiente.id) {
+        await member.roles.remove(rol.id).catch(() => {});
+      }
+    }
+
+    if (!member.roles.cache.has(rolCorrespondiente.id)) {
+      await member.roles.add(rolCorrespondiente.id);
+      console.log(`Rol asignado a ${userId}: ${rolCorrespondiente.id}`);
+    }
+  } catch (e) {
+    console.log('Error asignando rol:', e.message);
+  }
+}
 
 function extractDataFromMessages(messages) {
   const fullText = messages.map(m => m.content).join('\n');
@@ -131,20 +162,10 @@ function crearEmbedPrecio(paisKey, cantidad, tipo) {
   let desc;
   if (tipo === 'a_robux') {
     const robuxN = Math.floor((cantidad / pn) * 1000);
-    desc = `### ${p.flag} ${p.nombre}\n\n` +
-           `${EMOJI_ROBUX} **Cantidad:**\n\`${robuxN.toLocaleString()} Robux\`\n\n` +
-           `💰 **Precio total:**\n# \`${cantidad} ${p.moneda}\`\n\n` +
-           `📊 **Tarifa:** \`${pn} ${p.moneda} / 1.000 Robux\`\n\n` +
-           `━━━━━━━━━━━━━━━━━━━━\n\n` +
-           `🛍️ **Haiden Store**\n_Cotización automática de Robux_`;
+    desc = `### ${p.flag} ${p.nombre}\n\n${EMOJI_ROBUX} **Cantidad:**\n\`${robuxN.toLocaleString()} Robux\`\n\n💰 **Precio total:**\n# \`${cantidad} ${p.moneda}\`\n\n📊 **Tarifa:** \`${pn} ${p.moneda} / 1.000 Robux\`\n\n━━━━━━━━━━━━━━━━━━━━\n\n🛍️ **Haiden Store**\n_Cotización automática de Robux_`;
   } else {
     const dineroN = (cantidad / 1000 * pn).toFixed(2);
-    desc = `### ${p.flag} ${p.nombre}\n\n` +
-           `${EMOJI_ROBUX} **Cantidad:**\n\`${cantidad.toLocaleString()} Robux\`\n\n` +
-           `💰 **Precio total:**\n# \`${dineroN} ${p.moneda}\`\n\n` +
-           `📊 **Tarifa:** \`${pn} ${p.moneda} / 1.000 Robux\`\n\n` +
-           `━━━━━━━━━━━━━━━━━━━━\n\n` +
-           `🛍️ **Haiden Store**\n_Cotización automática de Robux_`;
+    desc = `### ${p.flag} ${p.nombre}\n\n${EMOJI_ROBUX} **Cantidad:**\n\`${cantidad.toLocaleString()} Robux\`\n\n💰 **Precio total:**\n# \`${dineroN} ${p.moneda}\`\n\n📊 **Tarifa:** \`${pn} ${p.moneda} / 1.000 Robux\`\n\n━━━━━━━━━━━━━━━━━━━━\n\n🛍️ **Haiden Store**\n_Cotización automática de Robux_`;
   }
   return new EmbedBuilder()
     .setColor(0x00ff88)
@@ -172,6 +193,7 @@ client.once('ready', async () => {
 
 client.on('channelDelete', async (channel) => {
   if (!channel.name?.startsWith('ticket-')) return;
+  console.log(`Ticket cerrado: ${channel.name}`);
 
   const transcriptChannel = client.channels.cache.get(VOUCH_CHANNEL_ID);
   if (!transcriptChannel) return;
@@ -179,35 +201,73 @@ client.on('channelDelete', async (channel) => {
   let messages;
   try {
     messages = await channel.messages.fetch({ limit: 50 });
-  } catch {
+  } catch (e) {
+    console.log('No se pudieron leer mensajes del ticket:', e.message);
     return;
   }
 
   const sorted = [...messages.values()].reverse();
   const fullText = sorted.map(m => m.content).join('\n');
+  const auto = extractDataFromMessages(sorted);
 
-  const getValue = (label) => {
-    const match = fullText.match(new RegExp(`${label}\\s*[:\\-]\\s*(.+)`, 'i'));
-    return match ? match[1].split('\n')[0].trim() : 'No especificado';
-  };
-
-  const cliente = getValue('cliente') || getValue('usuario') || 'Cliente';
+  const cliente = auto.cliente || 'Cliente';
   const referencia = channel.name;
-  const pais = getValue('país') || getValue('pais') || 'No especificado';
-  const compra = getValue('compra') || getValue('cantidad') || 'No especificado';
+  const pais = auto.pais || 'No especificado';
+  const compra = auto.compra || 'No especificado';
+  const precio = auto.precio || 'No especificado';
 
+  // Registrar compra y dar rol
+  const uidMatch = (auto.discord || '').match(/\d+/);
+  if (uidMatch) {
+    const uid = uidMatch[0];
+    const robux = parseInt((compra.match(/\d+/) || [0])[0]);
+    const dinero = parseFloat((precio.match(/[\d.]+/) || [0])[0]);
+    if (!compradores[uid]) compradores[uid] = { robux: 0, dinero: 0, compras: 0 };
+    compradores[uid].robux += robux;
+    compradores[uid].dinero += dinero;
+    compradores[uid].compras += 1;
+    saveCompras();
+
+    const guild = channel.guild;
+    if (guild) await asignarRolComprador(guild, uid, compradores[uid].dinero);
+
+    // Intentar DM
+    try {
+      const user = await client.users.fetch(uid);
+      const dmEmbed = new EmbedBuilder()
+        .setColor(0x00ff88)
+        .setAuthor({ name: '✵•.¸,✵°✵.｡.✰ ℍ𝕒𝕚𝕕𝕖𝕟 𝕊𝕥𝕠𝕣𝕖 🌙 ✰.｡.✵°✵,¸.•✵´' })
+        .setTitle('✅ Tu ticket ha sido cerrado')
+        .setDescription(
+          `Hola **${cliente}**, tu ticket en **Haiden Store** ha sido procesado.\n\n` +
+          `🔖 **Referencia:** \`${referencia}\`\n` +
+          `🌍 **País:** ${pais}\n` +
+          `📦 **Compra:** ${compra}\n` +
+          `💵 **Precio:** ${precio}\n` +
+          `📅 **Cerrado:** <t:${Math.floor(Date.now() / 1000)}:f>\n\n` +
+          `━━━━━━━━━━━━━━━━━━━━\n` +
+          `Gracias por tu compra ❤️`
+        )
+        .setFooter({ text: 'ʜᴀɪᴅᴇɴ ꜱᴛᴏʀᴇ 🌙' });
+      await user.send({ embeds: [dmEmbed] });
+      console.log(`DM enviado a ${uid}`);
+    } catch (e) {
+      console.log(`No se pudo enviar DM a ${uid}: ${e.message}`);
+    }
+  }
+
+  // Enviar al canal de vouch
   const embed = new EmbedBuilder()
     .setColor(0x00ff88)
     .setAuthor({ name: '✵•.¸,✵°✵.｡.✰ ℍ𝕒𝕚𝕕𝕖𝕟 𝕊𝕥𝕠𝕣𝕖 🌙 ✰.｡.✵°✵,¸.•✵´' })
-    .setTitle('✅ Tu ticket ha sido cerrado')
+    .setTitle('✅ Ticket cerrado')
     .setDescription(
-      `Hola **${cliente}**, tu ticket en **Haiden Store** ha sido procesado.\n\n` +
+      `**${cliente}**\n\n` +
       `🔖 **Referencia:** \`${referencia}\`\n` +
       `🌍 **País:** ${pais}\n` +
       `📦 **Compra:** ${compra}\n` +
-      `📅 **Cerrado:** <t:${Math.floor(Date.now() / 1000)}:f>\n\n` +
-      `━━━━━━━━━━━━━━━━━━━━\n` +
-      `Gracias por tu compra ❤️`
+      `💵 **Precio:** ${precio}\n` +
+      `📅 **Cerrado:** <t:${Math.floor(Date.now() / 1000)}:f>`
     )
     .setFooter({ text: 'ʜᴀɪᴅᴇɴ ꜱᴛᴏʀᴇ 🌙' });
 
@@ -224,7 +284,6 @@ client.on('interactionCreate', async interaction => {
     if (!userId) return interaction.editReply('❌ Usuario no encontrado.');
 
     const avatar = await getRobloxAvatar(userId);
-
     const results = [];
     let eligible = 0, waiting = 0, notIn = 0;
     for (const g of GROUPS) {
@@ -244,13 +303,11 @@ client.on('interactionCreate', async interaction => {
       desc += `${EMOJI_VERI} **GRUPOS ELEGIBLES (${eligibleGroups.length})**\n`;
       desc += eligibleGroups.map(g => `${EMOJI_VERI} ${EMOJI_ROBLOX} **[${g.name}](${g.url})**\n└ Cumple ${g.days}/15 días`).join('\n') + '\n\n';
     }
-
     const waitingGroups = results.filter(r => r.status === 'waiting');
     if (waitingGroups.length) {
       desc += `${EMOJI_ORANGE} **EN ESPERA (${waitingGroups.length})**\n`;
       desc += waitingGroups.map(g => `${EMOJI_ORANGE} ${EMOJI_ROBLOX} **[${g.name}](${g.url})**\n└ Lleva ${g.days}/15 días`).join('\n') + '\n\n';
     }
-
     const notInGroups = results.filter(r => r.status === 'not_in');
     if (notInGroups.length) {
       desc += `${EMOJI_RED} **GRUPOS PENDIENTES DE UNIRSE (${notInGroups.length})**\n`;
@@ -263,7 +320,6 @@ client.on('interactionCreate', async interaction => {
       .setDescription(desc.slice(0, 4096))
       .setThumbnail(avatar)
       .setFooter({ text: 'ʜᴀɪᴅᴇɴ ꜱᴛᴏʀᴇ 🌙' });
-
     await interaction.editReply({ embeds: [embed] });
   }
 
@@ -289,6 +345,7 @@ client.on('interactionCreate', async interaction => {
       compradores[uid].dinero += dinero;
       compradores[uid].compras += 1;
       saveCompras();
+      await asignarRolComprador(interaction.guild, uid, compradores[uid].dinero);
     }
 
     let thumb = null;
@@ -318,15 +375,11 @@ client.on('interactionCreate', async interaction => {
   if (interaction.commandName === 'top') {
     const sorted = Object.entries(compradores).sort((a, b) => b[1].robux - a[1].robux).slice(0, 10);
     if (!sorted.length) return interaction.reply('Todavía no hay datos.');
-
     let desc = '# 🏆 Los compradores más destacados\n\n';
     sorted.forEach(([id, d], i) => {
-      desc += `**#${i + 1}** <@${id}>\n`;
-      desc += `${EMOJI_ROBUX} **${d.robux.toLocaleString()}** Robux • 💰 $${d.dinero.toFixed(2)} USD\n`;
-      desc += `🛍️ ${d.compras} compra(s)\n`;
+      desc += `**#${i + 1}** <@${id}>\n${EMOJI_ROBUX} **${d.robux.toLocaleString()}** Robux • 💰 $${d.dinero.toFixed(2)} USD\n🛍️ ${d.compras} compra(s)\n`;
       if (i < sorted.length - 1) desc += '\n━━━━━━━━━━━━━━━━━━━━\n\n';
     });
-
     const embed = new EmbedBuilder()
       .setColor(0xFFD700)
       .setAuthor({ name: '✵•.¸,✵°✵.｡.✰ ℍ𝕒𝕚𝕕𝕖𝕟 𝕊𝕥𝕠𝕣𝕖 🌙 ✰.｡.✵°✵,¸.•✵´' })
@@ -340,7 +393,6 @@ client.on('interactionCreate', async interaction => {
     const data = compradores[user.id] || { robux: 0, dinero: 0, compras: 0 };
     const { actual, siguiente } = getRango(data.robux);
     const faltan = siguiente ? siguiente.robux - data.robux : 0;
-
     const embed = new EmbedBuilder()
       .setColor(0x5865F2)
       .setAuthor({ name: '✵•.¸,✵°✵.｡.✰ ℍ𝕒𝕚𝕕𝕖𝕟 𝕊𝕥𝕠𝕣𝕖 🌙 ✰.｡.✵°✵,¸.•✵´' })
@@ -354,7 +406,6 @@ client.on('interactionCreate', async interaction => {
         `${EMOJI_FIRE} **𝐏𝐑𝐎𝐗𝐈𝐌𝐎 𝐑𝐀𝐍𝐆𝐎:**\n${siguiente ? `${siguiente.nombre}\nFaltan ${faltan.toLocaleString()} Robux` : 'Rango máximo'}`
       )
       .setFooter({ text: 'ʜᴀɪᴅᴇɴ ꜱᴛᴏʀᴇ 🌙' });
-
     await interaction.reply({ embeds: [embed] });
   }
 
