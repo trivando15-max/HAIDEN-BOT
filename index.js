@@ -11,7 +11,6 @@ const VOUCH_CHANNEL_ID = '1574971863287992350';
 const CLOSED_TICKETS_LOG_CHANNEL = '1575184096882073600';
 const COMPRAS_FILE = './compras.json';
 
-// Sesiones de compra activa (userId -> datos)
 const sesiones = new Map();
 
 const ROLES_COMPRADORES = [
@@ -169,17 +168,13 @@ async function getBinanceP2PPrice(fiat) {
     const price = parseFloat(res.data?.data?.price || 0);
     if (!price) return null;
     return price * 1.016;
-  } catch (e) {
-    return null;
-  }
+  } catch (e) { return null; }
 }
 
 function getPrecioRobuxUSDT(metodo, cantidad) {
   const m = METODOS_ROBUX[metodo];
   if (!m) return null;
-  if (metodo === 'grupo') {
-    return cantidad >= 30000 ? m.descuento : m.normal;
-  }
+  if (metodo === 'grupo') return cantidad >= 30000 ? m.descuento : m.normal;
   return m.precio;
 }
 
@@ -196,10 +191,7 @@ async function calcularPrecio(paisKey, cantidad, metodo) {
   let moneda = 'USDT';
   if (pais.fiat) {
     const tasa = await getBinanceP2PPrice(pais.fiat);
-    if (tasa) {
-      precioLocal = totalUSDT * tasa;
-      moneda = pais.moneda;
-    }
+    if (tasa) { precioLocal = totalUSDT * tasa; moneda = pais.moneda; }
   } else if (pais.moneda === 'EUR') {
     precioLocal = totalUSDT * 0.93;
     moneda = 'EUR';
@@ -207,24 +199,13 @@ async function calcularPrecio(paisKey, cantidad, metodo) {
   return { precioLocal, moneda, precioUSDT: totalUSDT };
 }
 
-// ==================== COMPRA GUIADA ====================
 function crearBotonesPaises() {
   const rows = [];
   let row = new ActionRowBuilder();
   let count = 0;
   for (const [key, p] of Object.entries(PAISES)) {
-    if (count === 5) {
-      rows.push(row);
-      row = new ActionRowBuilder();
-      count = 0;
-    }
-    row.addComponents(
-      new ButtonBuilder()
-        .setCustomId(`pais_${key}`)
-        .setLabel(p.nombre)
-        .setEmoji(p.flag)
-        .setStyle(ButtonStyle.Secondary)
-    );
+    if (count === 5) { rows.push(row); row = new ActionRowBuilder(); count = 0; }
+    row.addComponents(new ButtonBuilder().setCustomId(`pais_${key}`).setLabel(p.nombre).setEmoji(p.flag).setStyle(ButtonStyle.Secondary));
     count++;
   }
   if (count > 0) rows.push(row);
@@ -232,14 +213,12 @@ function crearBotonesPaises() {
 }
 
 function crearBotonesMetodo() {
-  return [
-    new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId('metodo_grupo').setLabel('Grupo').setStyle(ButtonStyle.Primary),
-      new ButtonBuilder().setCustomId('metodo_gamepass').setLabel('Gamepass').setStyle(ButtonStyle.Primary),
-      new ButtonBuilder().setCustomId('metodo_plus').setLabel('Plus').setStyle(ButtonStyle.Primary),
-      new ButtonBuilder().setCustomId('metodo_regalo').setLabel('Regalo').setStyle(ButtonStyle.Primary)
-    )
-  ];
+  return [new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId('metodo_grupo').setLabel('Grupo').setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId('metodo_gamepass').setLabel('Gamepass').setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId('metodo_plus').setLabel('Plus').setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId('metodo_regalo').setLabel('Regalo').setStyle(ButtonStyle.Primary)
+  )];
 }
 
 async function finalizarCompra(channel, userId, sesion) {
@@ -253,6 +232,7 @@ async function finalizarCompra(channel, userId, sesion) {
     `Usuario Roblox: ${sesion.usuario || 'No especificado'}\n` +
     `Compra: ${sesion.cantidad} Robux\n` +
     `Via: ${metodo.nombre}\n` +
+    (sesion.juego ? `Juego: ${sesion.juego}\n` : '') +
     `País: ${pais.nombre}\n` +
     `Precio: ${precio ? precio.precioLocal.toLocaleString(undefined, { maximumFractionDigits: 2 }) + ' ' + precio.moneda : 'No calculado'}\n` +
     `Total: ${sesion.cantidad} Robux\n` +
@@ -261,9 +241,9 @@ async function finalizarCompra(channel, userId, sesion) {
   const embed = new EmbedBuilder()
     .setColor(0x00ff88)
     .setAuthor({ name: '✵•.¸,✵°✵.｡.✰ ℍ𝕒𝕚𝕕𝕖𝕟 𝕊𝕥𝕠𝕣𝕖 🌙 ✰.｡.✵°✵,¸.•✵´' })
-    .setTitle('✅ Pedido listo para pagar')
+    .setTitle(`${EMOJI_FELIZ} Pedido listo para pagar`)
     .setDescription(
-      `# Esperamos tu comprobante\n\n` +
+      `# Esperamos tu comprobante ${EMOJI_FIRE}\n\n` +
       `**Datos de pago:**\n${pais.datos}\n\n` +
       `**Monto a transferir:**\n# \`${precio ? precio.precioLocal.toLocaleString(undefined, { maximumFractionDigits: 2 }) : '---'} ${precio?.moneda || ''}\`\n\n` +
       `━━━━━━━━━━━━━━━━━━━━\n\n` +
@@ -286,10 +266,7 @@ client.once('ready', async () => {
     new SlashCommandBuilder().setName('top').setDescription('Top compradores'),
     new SlashCommandBuilder().setName('perfil').setDescription('Tu perfil de comprador').addUserOption(o => o.setName('usuario').setDescription('Usuario').setRequired(false)),
     new SlashCommandBuilder().setName('precio').setDescription('Calculadora de precios')
-      .addStringOption(o => o.setName('tipo').setDescription('Tipo de cálculo').setRequired(true).addChoices(
-        { name: 'Robux → Dinero', value: 'robux_a_dinero' },
-        { name: 'Dinero → Robux', value: 'dinero_a_robux' }
-      ))
+      .addStringOption(o => o.setName('tipo').setDescription('Tipo de cálculo').setRequired(true).addChoices({ name: 'Robux → Dinero', value: 'robux_a_dinero' }, { name: 'Dinero → Robux', value: 'dinero_a_robux' }))
       .addStringOption(o => o.setName('metodo').setDescription('Método de envío').setRequired(true).addChoices(...metodoChoices))
       .addNumberOption(o => o.setName('cantidad').setDescription('Cantidad').setRequired(true))
       .addStringOption(o => o.setName('pais').setDescription('País').setRequired(true).addChoices(...paisChoices))
@@ -309,7 +286,7 @@ client.on('interactionCreate', async interaction => {
       sesion.pais = pais;
       sesion.paso = 'metodo';
       await interaction.update({
-        content: `✅ País seleccionado: **${PAISES[pais].nombre}**\n\nAhora elegí el método de envío:`,
+        content: `${EMOJI_VERI} País seleccionado: **${PAISES[pais].nombre}**\n\nAhora elegí el método de envío:`,
         components: crearBotonesMetodo(),
         embeds: []
       });
@@ -320,7 +297,7 @@ client.on('interactionCreate', async interaction => {
       sesion.metodo = metodo;
       sesion.paso = 'cantidad';
       await interaction.update({
-        content: `✅ Método: **${METODOS_ROBUX[metodo].nombre}**\n\nEscribí la cantidad de Robux con:\n\`!cantidad 1000\``,
+        content: `${EMOJI_VERI} Método: **${METODOS_ROBUX[metodo].nombre}**\n\nEscribí la cantidad de Robux:\n\`!cantidad 1000\``,
         components: []
       });
     }
@@ -335,16 +312,19 @@ client.on('interactionCreate', async interaction => {
     const userId = await getRobloxUserId(username);
     if (!userId) return interaction.editReply('❌ Usuario no encontrado.');
     const avatar = await getRobloxAvatar(userId);
-    const results = [];
     let eligible = 0, waiting = 0, notIn = 0;
     for (const g of GROUPS) {
       const m = await getMembership(g.id, userId);
-      if (!m) { notIn++; results.push({ ...g, status: 'not_in' }); }
-      else if (m.days >= g.requiredDays) { eligible++; results.push({ ...g, status: 'eligible', days: m.days }); }
-      else { waiting++; results.push({ ...g, status: 'waiting', days: m.days }); }
+      if (!m) notIn++;
+      else if (m.days >= g.requiredDays) eligible++;
+      else waiting++;
     }
-    let desc = `# ${EMOJI_FELIZ} **Verificación de ${username}**\n\n🌐 **RESUMEN**\n${EMOJI_VERI} **${eligible}** elegibles  ${EMOJI_ORANGE} **${waiting}** en espera  ${EMOJI_RED} **${notIn}** sin unirse\n\n`;
-    const embed = new EmbedBuilder().setColor(0x5865F2).setAuthor({ name: '✵•.¸,✵°✵.｡.✰ ℍ𝕒𝕚𝕕𝕖𝕟 𝕊𝕥𝕠𝕣𝕖 🌙 ✰.｡.✵°✵,¸.•✵´' }).setDescription(desc.slice(0, 4096)).setThumbnail(avatar).setFooter({ text: 'ʜᴀɪᴅᴇɴ ꜱᴛᴏʀᴇ 🌙' });
+    const embed = new EmbedBuilder()
+      .setColor(0x5865F2)
+      .setAuthor({ name: '✵•.¸,✵°✵.｡.✰ ℍ𝕒𝕚𝕕𝕖𝕟 𝕊𝕥𝕠𝕣𝕖 🌙 ✰.｡.✵°✵,¸.•✵´' })
+      .setDescription(`# ${EMOJI_FELIZ} **Verificación de ${username}**\n\n${EMOJI_VERI} **${eligible}** elegibles  ${EMOJI_ORANGE} **${waiting}** en espera  ${EMOJI_RED} **${notIn}** sin unirse`)
+      .setThumbnail(avatar)
+      .setFooter({ text: 'ʜᴀɪᴅᴇɴ ꜱᴛᴏʀᴇ 🌙' });
     await interaction.editReply({ embeds: [embed] });
   }
 
@@ -352,18 +332,12 @@ client.on('interactionCreate', async interaction => {
     await interaction.deferReply({ ephemeral: true });
     const msgs = await interaction.channel.messages.fetch({ limit: 25 });
     const auto = extractDataFromMessages([...msgs.values()]);
-    const cliente = auto.cliente || 'Cliente';
     const discordUser = auto.discord || 'No especificado';
-    const referencia = auto.referencia || interaction.channel.name;
-    const compra = auto.compra || 'No especificado';
-    const precio = auto.precio || 'No especificado';
-    const via = auto.via || 'No especificado';
-
     const uidMatch = discordUser.match(/\d+/);
     if (uidMatch) {
       const uid = uidMatch[0];
-      const robux = parseInt((compra.match(/\d+/) || [0])[0]);
-      const dinero = parseFloat((precio.match(/[\d.]+/) || [0])[0]);
+      const robux = parseInt((auto.compra?.match(/\d+/) || [0])[0]);
+      const dinero = parseFloat((auto.precio?.match(/[\d.]+/) || [0])[0]);
       if (!compradores[uid]) compradores[uid] = { robux: 0, dinero: 0, compras: 0 };
       compradores[uid].robux += robux;
       compradores[uid].dinero += dinero;
@@ -371,19 +345,17 @@ client.on('interactionCreate', async interaction => {
       saveCompras();
       await asignarRolComprador(interaction.guild, uid, compradores[uid].dinero);
     }
-
     const ch = client.channels.cache.get(VOUCH_CHANNEL_ID);
     if (ch) {
       const embed = new EmbedBuilder()
         .setColor(0x00ff88)
         .setAuthor({ name: '✵•.¸,✵°✵.｡.✰ ℍ𝕒𝕚𝕕𝕖𝕟 𝕊𝕥𝕠𝕣𝕖 🌙 ✰.｡.✵°✵,¸.•✵´' })
-        .setDescription(`# ${cliente}\nha realizado una compra`)
+        .setDescription(`# ${auto.cliente || 'Cliente'}\nha realizado una compra`)
         .addFields(
           { name: '👤 Cliente', value: discordUser, inline: true },
-          { name: '🔖 Referencia', value: referencia, inline: true },
-          { name: '📦 Compra', value: compra, inline: true },
-          { name: '💵 Precio', value: precio, inline: true },
-          { name: '📦 Robux Via', value: via, inline: true }
+          { name: '📦 Compra', value: auto.compra || 'No especificado', inline: true },
+          { name: '💵 Precio', value: auto.precio || 'No especificado', inline: true },
+          { name: '📦 Robux Via', value: auto.via || 'No especificado', inline: true }
         )
         .setFooter({ text: 'ʜᴀɪᴅᴇɴ ꜱᴛᴏʀᴇ 🌙' });
       await ch.send({ embeds: [embed] });
@@ -395,9 +367,7 @@ client.on('interactionCreate', async interaction => {
     const sorted = Object.entries(compradores).sort((a, b) => b[1].robux - a[1].robux).slice(0, 10);
     if (!sorted.length) return interaction.reply('No hay datos.');
     let desc = '# 🏆 Top compradores\n\n';
-    sorted.forEach(([id, d], i) => {
-      desc += `**#${i + 1}** <@${id}>\n${EMOJI_ROBUX} ${d.robux.toLocaleString()} Robux\n`;
-    });
+    sorted.forEach(([id, d], i) => { desc += `**#${i + 1}** <@${id}>\n${EMOJI_ROBUX} ${d.robux.toLocaleString()} Robux\n`; });
     const embed = new EmbedBuilder().setColor(0xFFD700).setAuthor({ name: '✵•.¸,✵°✵.｡.✰ ℍ𝕒𝕚𝕕𝕖𝕟 𝕊𝕥𝕠𝕣𝕖 🌙 ✰.｡.✵°✵,¸.•✵´' }).setDescription(desc).setFooter({ text: 'ʜᴀɪᴅᴇɴ ꜱᴛᴏʀᴇ 🌙' });
     await interaction.reply({ embeds: [embed] });
   }
@@ -405,7 +375,7 @@ client.on('interactionCreate', async interaction => {
   if (interaction.commandName === 'perfil') {
     const user = interaction.options.getUser('usuario') || interaction.user;
     const data = compradores[user.id] || { robux: 0, dinero: 0, compras: 0 };
-    const { actual, siguiente } = getRango(data.robux);
+    const { actual } = getRango(data.robux);
     const embed = new EmbedBuilder()
       .setColor(0x5865F2)
       .setAuthor({ name: '✵•.¸,✵°✵.｡.✰ ℍ𝕒𝕚𝕕𝕖𝕟 𝕊𝕥𝕠𝕣𝕖 🌙 ✰.｡.✵°✵,¸.•✵´' })
@@ -417,7 +387,6 @@ client.on('interactionCreate', async interaction => {
 
   if (interaction.commandName === 'precio') {
     await interaction.deferReply();
-    const tipo = interaction.options.getString('tipo');
     const metodo = interaction.options.getString('metodo');
     const cantidad = interaction.options.getNumber('cantidad');
     const pais = interaction.options.getString('pais');
@@ -444,7 +413,7 @@ client.on('messageCreate', async message => {
     const embed = new EmbedBuilder()
       .setColor(0x5865F2)
       .setAuthor({ name: '✵•.¸,✵°✵.｡.✰ ℍ𝕒𝕚𝕕𝕖𝕟 𝕊𝕥𝕠𝕣𝕖 🌙 ✰.｡.✵°✵,¸.•✵´' })
-      .setTitle('Selecciona tu país / método de pago')
+      .setTitle(`${EMOJI_FELIZ} Selecciona tu país / método de pago`)
       .setDescription('Tocá el botón de tu país para continuar.')
       .setFooter({ text: 'ʜᴀɪᴅᴇɴ ꜱᴛᴏʀᴇ 🌙' });
     await message.reply({ embeds: [embed], components: crearBotonesPaises() });
@@ -456,18 +425,31 @@ client.on('messageCreate', async message => {
 
   if (command === 'cantidad' && sesion.paso === 'cantidad') {
     const cant = parseInt(args[0]);
-    if (!cant || cant < 1) return message.reply('Escribí una cantidad válida. Ejemplo: `!cantidad 1000`');
+    if (!cant || cant < 1) return message.reply(`${EMOJI_RED} Escribí una cantidad válida. Ejemplo: \`!cantidad 1000\``);
     sesion.cantidad = cant;
+    if (sesion.metodo === 'regalo') {
+      sesion.paso = 'juego';
+      await message.reply(`${EMOJI_VERI} Cantidad guardada.\n\nAhora escribí el nombre del juego:\n\`!juego Adopt Me\``);
+    } else {
+      sesion.paso = 'usuario';
+      await message.reply(`${EMOJI_VERI} Cantidad guardada.\n\nAhora escribí tu usuario de Roblox:\n\`!usuario tunombre\``);
+    }
+  }
+
+  if (command === 'juego' && sesion.paso === 'juego') {
+    const juego = args.join(' ');
+    if (!juego) return message.reply(`${EMOJI_RED} Escribí el nombre del juego. Ejemplo: \`!juego Adopt Me\``);
+    sesion.juego = juego;
     sesion.paso = 'usuario';
-    await message.reply('✅ Cantidad guardada.\n\nAhora escribí tu usuario de Roblox:\n`!usuario tunombre`\n\n*(El que aparece después del @, no el apodo)*');
+    await message.reply(`${EMOJI_VERI} Juego guardado.\n\nAhora escribí tu usuario de Roblox:\n\`!usuario tunombre\``);
   }
 
   if (command === 'usuario' && sesion.paso === 'usuario') {
     const usuario = args[0];
-    if (!usuario) return message.reply('Escribí tu usuario. Ejemplo: `!usuario nequipepe123`');
+    if (!usuario) return message.reply(`${EMOJI_RED} Escribí tu usuario. Ejemplo: \`!usuario nequipepe123\``);
     sesion.usuario = usuario;
     if (sesion.metodo === 'grupo') {
-      await message.reply(`✅ Usuario: **${usuario}**\n\nPodés verificar más usuarios con \`/verificar usuario\`\nCuando termines, escribí:\n\`!precio automatico\``);
+      await message.reply(`${EMOJI_VERI} Usuario: **${usuario}**\n\nPodés verificar más usuarios con \`/verificar usuario\`\nCuando termines, escribí:\n\`!precio automatico\``);
       sesion.paso = 'confirmar';
     } else {
       await finalizarCompra(message.channel, userId, sesion);
@@ -479,7 +461,7 @@ client.on('messageCreate', async message => {
   }
 
   if (command === 'help') {
-    await message.reply('Comandos: `!pagocon` para iniciar una compra.');
+    await message.reply(`${EMOJI_FELIZ} Usá \`!pagocon\` para iniciar una compra.`);
   }
 });
 
