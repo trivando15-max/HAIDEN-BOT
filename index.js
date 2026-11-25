@@ -56,6 +56,7 @@ const PAISES = {
   argentina:  { nombre: 'Argentina',  flag: '🇦🇷', moneda: 'ARS',  fiat: 'ARS', datos: 'Mercado Pago / Transferencia' },
   chile:      { nombre: 'Chile',      flag: '🇨🇱', moneda: 'CLP',  fiat: 'CLP', datos: 'Banco Estado / Santander' },
   ecuador:    { nombre: 'Ecuador',    flag: '🇪🇨', moneda: 'USD',  fiat: null, datos: 'Banco Pichincha' },
+  uruguay:    { nombre: 'Uruguay',    flag: '🇺🇾', moneda: 'UYU',  fiat: null, datos: 'Prex' },
   europa:     { nombre: 'Europa',     flag: '🇪🇺', moneda: 'EUR',  fiat: null, datos: 'Bizum / Transferencia' },
   panama:     { nombre: 'Panamá',     flag: '🇵🇦', moneda: 'USD',  fiat: null, datos: 'Yappy' },
   eeuu:       { nombre: 'Estados Unidos', flag: '🇺🇸', moneda: 'USD', fiat: null, datos: 'Zelle / CashApp' },
@@ -276,6 +277,57 @@ client.once('ready', async () => {
   await rest.put(Routes.applicationCommands(client.user.id), { body: commands });
 });
 
+client.on('messageCreate', async (message) => {
+  if (message.channel.id !== CLOSED_TICKETS_LOG_CHANNEL || !message.author.bot) return;
+  if (!message.embeds.length) return;
+
+  const embed = message.embeds[0];
+  console.log('Embed en transcripts-close:', embed.title);
+  if (!embed.title || !embed.title.toLowerCase().includes('ticket closed')) return;
+
+  console.log('Ticket cerrado detectado');
+
+  let userId = null;
+  const authorField = embed.fields?.find(f => f.name === 'Ticket Author');
+  if (authorField) {
+    const match = authorField.value.match(/<@!?(\d+)>/);
+    if (match) userId = match[1];
+  }
+  if (!userId) {
+    console.log('No se encontró Ticket Author');
+    return;
+  }
+
+  console.log('Usuario:', userId);
+  const ticketName = embed.fields?.find(f => f.name === 'Ticket Name')?.value || 'ticket';
+
+  if (!compradores[userId]) compradores[userId] = { robux: 0, dinero: 0, compras: 0 };
+  compradores[userId].compras += 1;
+  saveCompras();
+
+  const vouchChannel = client.channels.cache.get(VOUCH_CHANNEL_ID);
+  if (vouchChannel) {
+    const vouchEmbed = new EmbedBuilder()
+      .setColor(0x00ff88)
+      .setAuthor({ name: '✵•.¸,✵°✵.｡.✰ ℍ𝕒𝕚𝕕𝕖𝕟 𝕊𝕥𝕠𝕣𝕖 🌙 ✰.｡.✵°✵,¸.•✵´' })
+      .setTitle('🛒 Nueva compra registrada')
+      .setDescription(`# <@${userId}>\nha realizado una compra en **Haiden Store**`)
+      .addFields(
+        { name: '👤 Cliente', value: `<@${userId}>`, inline: true },
+        { name: '🔖 Referencia', value: ticketName, inline: true }
+      )
+      .setFooter({ text: 'ʜᴀɪᴅᴇɴ ꜱᴛᴏʀᴇ 🌙' });
+    await vouchChannel.send({ embeds: [vouchEmbed] });
+  }
+
+  try {
+    const user = await client.users.fetch(userId);
+    await user.send({ content: `Tu ticket **${ticketName}** ha sido cerrado. Gracias por tu compra.` });
+  } catch (e) {
+    console.log('No se pudo enviar DM:', e.message);
+  }
+});
+
 client.on('interactionCreate', async interaction => {
   if (interaction.isButton()) {
     const sesion = sesiones.get(interaction.user.id);
@@ -311,18 +363,42 @@ client.on('interactionCreate', async interaction => {
     const username = interaction.options.getString('usuario');
     const userId = await getRobloxUserId(username);
     if (!userId) return interaction.editReply('❌ Usuario no encontrado.');
+
     const avatar = await getRobloxAvatar(userId);
+    const results = [];
     let eligible = 0, waiting = 0, notIn = 0;
     for (const g of GROUPS) {
       const m = await getMembership(g.id, userId);
-      if (!m) notIn++;
-      else if (m.days >= g.requiredDays) eligible++;
-      else waiting++;
+      if (!m) { notIn++; results.push({ ...g, status: 'not_in' }); }
+      else if (m.days >= g.requiredDays) { eligible++; results.push({ ...g, status: 'eligible', days: m.days }); }
+      else { waiting++; results.push({ ...g, status: 'waiting', days: m.days }); }
     }
+
+    let desc = `# ${EMOJI_FELIZ} **Verificación de ${username}**\n\n`;
+    desc += `🌐 **RESUMEN DE VERIFICACIÓN**\n`;
+    desc += `${EMOJI_VERI} **${eligible}** elegibles  ${EMOJI_ORANGE} **${waiting}** en espera  ${EMOJI_RED} **${notIn}** sin unirse\n`;
+    desc += `**${GROUPS.length}** grupos configurados\n\n`;
+
+    const eligibleGroups = results.filter(r => r.status === 'eligible');
+    if (eligibleGroups.length) {
+      desc += `${EMOJI_VERI} **GRUPOS ELEGIBLES (${eligibleGroups.length})**\n`;
+      desc += eligibleGroups.map(g => `${EMOJI_VERI} ${EMOJI_ROBLOX} **[${g.name}](${g.url})**\n└ Cumple ${g.days}/15 días`).join('\n') + '\n\n';
+    }
+    const waitingGroups = results.filter(r => r.status === 'waiting');
+    if (waitingGroups.length) {
+      desc += `${EMOJI_ORANGE} **EN ESPERA (${waitingGroups.length})**\n`;
+      desc += waitingGroups.map(g => `${EMOJI_ORANGE} ${EMOJI_ROBLOX} **[${g.name}](${g.url})**\n└ Lleva ${g.days}/15 días`).join('\n') + '\n\n';
+    }
+    const notInGroups = results.filter(r => r.status === 'not_in');
+    if (notInGroups.length) {
+      desc += `${EMOJI_RED} **GRUPOS PENDIENTES (${notInGroups.length})**\n`;
+      desc += notInGroups.map(g => `${EMOJI_RED} ${EMOJI_ROBLOX} **[${g.name}](${g.url})**\n└ No pertenece al grupo`).join('\n');
+    }
+
     const embed = new EmbedBuilder()
       .setColor(0x5865F2)
       .setAuthor({ name: '✵•.¸,✵°✵.｡.✰ ℍ𝕒𝕚𝕕𝕖𝕟 𝕊𝕥𝕠𝕣𝕖 🌙 ✰.｡.✵°✵,¸.•✵´' })
-      .setDescription(`# ${EMOJI_FELIZ} **Verificación de ${username}**\n\n${EMOJI_VERI} **${eligible}** elegibles  ${EMOJI_ORANGE} **${waiting}** en espera  ${EMOJI_RED} **${notIn}** sin unirse`)
+      .setDescription(desc.slice(0, 4096))
       .setThumbnail(avatar)
       .setFooter({ text: 'ʜᴀɪᴅᴇɴ ꜱᴛᴏʀᴇ 🌙' });
     await interaction.editReply({ embeds: [embed] });
