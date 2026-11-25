@@ -93,16 +93,12 @@ async function asignarRolComprador(guild, userId, totalDinero) {
   try {
     const member = await guild.members.fetch(userId).catch(() => null);
     if (!member) return;
-    const rolCorrespondiente = ROLES_COMPRADORES.find(r => totalDinero >= r.min);
-    if (!rolCorrespondiente) return;
-    for (const rol of ROLES_COMPRADORES) {
-      if (member.roles.cache.has(rol.id) && rol.id !== rolCorrespondiente.id) {
-        await member.roles.remove(rol.id).catch(() => {});
-      }
+    const rol = ROLES_COMPRADORES.find(r => totalDinero >= r.min);
+    if (!rol) return;
+    for (const r of ROLES_COMPRADORES) {
+      if (member.roles.cache.has(r.id) && r.id !== rol.id) await member.roles.remove(r.id).catch(() => {});
     }
-    if (!member.roles.cache.has(rolCorrespondiente.id)) {
-      await member.roles.add(rolCorrespondiente.id);
-    }
+    if (!member.roles.cache.has(rol.id)) await member.roles.add(rol.id);
   } catch (e) {}
 }
 
@@ -163,13 +159,11 @@ async function getMembership(groupId, userId) {
 async function getBinanceP2PPrice(fiat) {
   try {
     const res = await axios.get('https://www.binance.com/bapi/c2c/v1/public/c2c/agent/quote-price', {
-      params: { fiat, asset: 'USDT', tradeType: 'BUY' },
-      timeout: 8000
+      params: { fiat, asset: 'USDT', tradeType: 'BUY' }, timeout: 8000
     });
     const price = parseFloat(res.data?.data?.price || 0);
-    if (!price) return null;
-    return price * 1.016;
-  } catch (e) { return null; }
+    return price ? price * 1.016 : null;
+  } catch { return null; }
 }
 
 function getPrecioRobuxUSDT(metodo, cantidad) {
@@ -274,57 +268,108 @@ client.once('ready', async () => {
   ].map(c => c.toJSON());
 
   const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
-  await rest.put(Routes.applicationCommands(client.user.id), { body: commands });
+  try {
+    await rest.put(Routes.applicationCommands(client.user.id), { body: commands });
+    console.log('Comandos registrados');
+  } catch (e) { console.log('Error registrando comandos:', e); }
 });
 
 client.on('messageCreate', async (message) => {
-  if (message.channel.id !== CLOSED_TICKETS_LOG_CHANNEL || !message.author.bot) return;
-  if (!message.embeds.length) return;
+  // Detección de ticket cerrado
+  if (message.channel.id === CLOSED_TICKETS_LOG_CHANNEL && message.author.bot && message.embeds.length) {
+    const embed = message.embeds[0];
+    if (embed.title && embed.title.toLowerCase().includes('ticket closed')) {
+      console.log('Ticket cerrado detectado');
+      let userId = null;
+      const authorField = embed.fields?.find(f => f.name === 'Ticket Author');
+      if (authorField) {
+        const match = authorField.value.match(/<@!?(\d+)>/);
+        if (match) userId = match[1];
+      }
+      if (userId) {
+        const ticketName = embed.fields?.find(f => f.name === 'Ticket Name')?.value || 'ticket';
+        if (!compradores[userId]) compradores[userId] = { robux: 0, dinero: 0, compras: 0 };
+        compradores[userId].compras += 1;
+        saveCompras();
 
-  const embed = message.embeds[0];
-  console.log('Embed en transcripts-close:', embed.title);
-  if (!embed.title || !embed.title.toLowerCase().includes('ticket closed')) return;
-
-  console.log('Ticket cerrado detectado');
-
-  let userId = null;
-  const authorField = embed.fields?.find(f => f.name === 'Ticket Author');
-  if (authorField) {
-    const match = authorField.value.match(/<@!?(\d+)>/);
-    if (match) userId = match[1];
-  }
-  if (!userId) {
-    console.log('No se encontró Ticket Author');
+        const vouchChannel = client.channels.cache.get(VOUCH_CHANNEL_ID);
+        if (vouchChannel) {
+          const vouchEmbed = new EmbedBuilder()
+            .setColor(0x00ff88)
+            .setAuthor({ name: '✵•.¸,✵°✵.｡.✰ ℍ𝕒𝕚𝕕𝕖𝕟 𝕊𝕥𝕠𝕣𝕖 🌙 ✰.｡.✵°✵,¸.•✵´' })
+            .setTitle('🛒 Nueva compra registrada')
+            .setDescription(`# <@${userId}>\nha realizado una compra en **Haiden Store**`)
+            .addFields({ name: '🔖 Referencia', value: ticketName, inline: true })
+            .setFooter({ text: 'ʜᴀɪᴅᴇɴ ꜱᴛᴏʀᴇ 🌙' });
+          await vouchChannel.send({ embeds: [vouchEmbed] });
+        }
+        try {
+          const user = await client.users.fetch(userId);
+          await user.send({ content: `Tu ticket **${ticketName}** ha sido cerrado. Gracias por tu compra.` });
+        } catch (e) {}
+      }
+    }
     return;
   }
 
-  console.log('Usuario:', userId);
-  const ticketName = embed.fields?.find(f => f.name === 'Ticket Name')?.value || 'ticket';
+  // Comandos con !
+  if (message.author.bot || !message.content.startsWith(PREFIX)) return;
+  const args = message.content.slice(PREFIX.length).trim().split(/ +/);
+  const command = args.shift().toLowerCase();
+  const userId = message.author.id;
 
-  if (!compradores[userId]) compradores[userId] = { robux: 0, dinero: 0, compras: 0 };
-  compradores[userId].compras += 1;
-  saveCompras();
-
-  const vouchChannel = client.channels.cache.get(VOUCH_CHANNEL_ID);
-  if (vouchChannel) {
-    const vouchEmbed = new EmbedBuilder()
-      .setColor(0x00ff88)
+  if (command === 'pagocon') {
+    sesiones.set(userId, { paso: 'pais' });
+    const embed = new EmbedBuilder()
+      .setColor(0x5865F2)
       .setAuthor({ name: '✵•.¸,✵°✵.｡.✰ ℍ𝕒𝕚𝕕𝕖𝕟 𝕊𝕥𝕠𝕣𝕖 🌙 ✰.｡.✵°✵,¸.•✵´' })
-      .setTitle('🛒 Nueva compra registrada')
-      .setDescription(`# <@${userId}>\nha realizado una compra en **Haiden Store**`)
-      .addFields(
-        { name: '👤 Cliente', value: `<@${userId}>`, inline: true },
-        { name: '🔖 Referencia', value: ticketName, inline: true }
-      )
+      .setTitle(`${EMOJI_FELIZ} Selecciona tu país / método de pago`)
+      .setDescription('Tocá el botón de tu país para continuar.')
       .setFooter({ text: 'ʜᴀɪᴅᴇɴ ꜱᴛᴏʀᴇ 🌙' });
-    await vouchChannel.send({ embeds: [vouchEmbed] });
+    await message.reply({ embeds: [embed], components: crearBotonesPaises() });
+    return;
   }
 
-  try {
-    const user = await client.users.fetch(userId);
-    await user.send({ content: `Tu ticket **${ticketName}** ha sido cerrado. Gracias por tu compra.` });
-  } catch (e) {
-    console.log('No se pudo enviar DM:', e.message);
+  const sesion = sesiones.get(userId);
+  if (!sesion) return;
+
+  if (command === 'cantidad' && sesion.paso === 'cantidad') {
+    const cant = parseInt(args[0]);
+    if (!cant || cant < 1) return message.reply(`${EMOJI_RED} Escribí una cantidad válida. Ejemplo: \`!cantidad 1000\``);
+    sesion.cantidad = cant;
+    if (sesion.metodo === 'regalo') {
+      sesion.paso = 'juego';
+      await message.reply(`${EMOJI_VERI} Cantidad guardada.\n\nAhora escribí el nombre del juego:\n\`!juego Adopt Me\``);
+    } else {
+      sesion.paso = 'usuario';
+      await message.reply(`${EMOJI_VERI} Cantidad guardada.\n\nAhora escribí tu usuario de Roblox:\n\`!usuario tunombre\``);
+    }
+  }
+
+  if (command === 'juego' && sesion.paso === 'juego') {
+    const juego = args.join(' ');
+    if (!juego) return message.reply(`${EMOJI_RED} Escribí el nombre del juego.`);
+    sesion.juego = juego;
+    sesion.paso = 'usuario';
+    await message.reply(`${EMOJI_VERI} Juego guardado.\n\nAhora escribí tu usuario de Roblox:\n\`!usuario tunombre\``);
+  }
+
+  if (command === 'usuario' && sesion.paso === 'usuario') {
+    const usuario = args[0];
+    if (!usuario) return message.reply(`${EMOJI_RED} Escribí tu usuario.`);
+    sesion.usuario = usuario;
+    if (sesion.metodo === 'grupo') {
+      await message.reply(`${EMOJI_VERI} Usuario: **${usuario}**\n\nCuando termines, escribí:\n\`!precio automatico\``);
+      sesion.paso = 'confirmar';
+    } else {
+      await finalizarCompra(message.channel, userId, sesion);
+    }
+  }
+
+  if ((command === 'precio' && args[0] === 'automatico') || command === 'precioautomatico') {
+    if (sesion.paso === 'confirmar') {
+      await finalizarCompra(message.channel, userId, sesion);
+    }
   }
 });
 
@@ -363,7 +408,6 @@ client.on('interactionCreate', async interaction => {
     const username = interaction.options.getString('usuario');
     const userId = await getRobloxUserId(username);
     if (!userId) return interaction.editReply('❌ Usuario no encontrado.');
-
     const avatar = await getRobloxAvatar(userId);
     const results = [];
     let eligible = 0, waiting = 0, notIn = 0;
@@ -373,34 +417,11 @@ client.on('interactionCreate', async interaction => {
       else if (m.days >= g.requiredDays) { eligible++; results.push({ ...g, status: 'eligible', days: m.days }); }
       else { waiting++; results.push({ ...g, status: 'waiting', days: m.days }); }
     }
-
     let desc = `# ${EMOJI_FELIZ} **Verificación de ${username}**\n\n`;
-    desc += `🌐 **RESUMEN DE VERIFICACIÓN**\n`;
-    desc += `${EMOJI_VERI} **${eligible}** elegibles  ${EMOJI_ORANGE} **${waiting}** en espera  ${EMOJI_RED} **${notIn}** sin unirse\n`;
-    desc += `**${GROUPS.length}** grupos configurados\n\n`;
-
+    desc += `${EMOJI_VERI} **${eligible}** elegibles  ${EMOJI_ORANGE} **${waiting}** en espera  ${EMOJI_RED} **${notIn}** sin unirse\n\n`;
     const eligibleGroups = results.filter(r => r.status === 'eligible');
-    if (eligibleGroups.length) {
-      desc += `${EMOJI_VERI} **GRUPOS ELEGIBLES (${eligibleGroups.length})**\n`;
-      desc += eligibleGroups.map(g => `${EMOJI_VERI} ${EMOJI_ROBLOX} **[${g.name}](${g.url})**\n└ Cumple ${g.days}/15 días`).join('\n') + '\n\n';
-    }
-    const waitingGroups = results.filter(r => r.status === 'waiting');
-    if (waitingGroups.length) {
-      desc += `${EMOJI_ORANGE} **EN ESPERA (${waitingGroups.length})**\n`;
-      desc += waitingGroups.map(g => `${EMOJI_ORANGE} ${EMOJI_ROBLOX} **[${g.name}](${g.url})**\n└ Lleva ${g.days}/15 días`).join('\n') + '\n\n';
-    }
-    const notInGroups = results.filter(r => r.status === 'not_in');
-    if (notInGroups.length) {
-      desc += `${EMOJI_RED} **GRUPOS PENDIENTES (${notInGroups.length})**\n`;
-      desc += notInGroups.map(g => `${EMOJI_RED} ${EMOJI_ROBLOX} **[${g.name}](${g.url})**\n└ No pertenece al grupo`).join('\n');
-    }
-
-    const embed = new EmbedBuilder()
-      .setColor(0x5865F2)
-      .setAuthor({ name: '✵•.¸,✵°✵.｡.✰ ℍ𝕒𝕚𝕕𝕖𝕟 𝕊𝕥𝕠𝕣𝕖 🌙 ✰.｡.✵°✵,¸.•✵´' })
-      .setDescription(desc.slice(0, 4096))
-      .setThumbnail(avatar)
-      .setFooter({ text: 'ʜᴀɪᴅᴇɴ ꜱᴛᴏʀᴇ 🌙' });
+    if (eligibleGroups.length) desc += eligibleGroups.map(g => `${EMOJI_VERI} **[${g.name}](${g.url})** (${g.days}/15)`).join('\n') + '\n';
+    const embed = new EmbedBuilder().setColor(0x5865F2).setAuthor({ name: '✵•.¸,✵°✵.｡.✰ ℍ𝕒𝕚𝕕𝕖𝕟 𝕊𝕥𝕠𝕣𝕖 🌙 ✰.｡.✵°✵,¸.•✵´' }).setDescription(desc.slice(0, 4096)).setThumbnail(avatar).setFooter({ text: 'ʜᴀɪᴅᴇɴ ꜱᴛᴏʀᴇ 🌙' });
     await interaction.editReply({ embeds: [embed] });
   }
 
@@ -430,8 +451,7 @@ client.on('interactionCreate', async interaction => {
         .addFields(
           { name: '👤 Cliente', value: discordUser, inline: true },
           { name: '📦 Compra', value: auto.compra || 'No especificado', inline: true },
-          { name: '💵 Precio', value: auto.precio || 'No especificado', inline: true },
-          { name: '📦 Robux Via', value: auto.via || 'No especificado', inline: true }
+          { name: '💵 Precio', value: auto.precio || 'No especificado', inline: true }
         )
         .setFooter({ text: 'ʜᴀɪᴅᴇɴ ꜱᴛᴏʀᴇ 🌙' });
       await ch.send({ embeds: [embed] });
@@ -451,12 +471,20 @@ client.on('interactionCreate', async interaction => {
   if (interaction.commandName === 'perfil') {
     const user = interaction.options.getUser('usuario') || interaction.user;
     const data = compradores[user.id] || { robux: 0, dinero: 0, compras: 0 };
-    const { actual } = getRango(data.robux);
+    const { actual, siguiente } = getRango(data.robux);
+    const faltan = siguiente ? siguiente.robux - data.robux : 0;
     const embed = new EmbedBuilder()
       .setColor(0x5865F2)
       .setAuthor({ name: '✵•.¸,✵°✵.｡.✰ ℍ𝕒𝕚𝕕𝕖𝕟 𝕊𝕥𝕠𝕣𝕖 🌙 ✰.｡.✵°✵,¸.•✵´' })
       .setThumbnail(user.displayAvatarURL({ size: 256 }))
-      .setDescription(`# ${EMOJI_FELIZ} **Perfil de** ${user.username}\n\n${EMOJI_STAR} **Rango:** ${actual.nombre}\n${EMOJI_ROBUX} **Robux:** ${data.robux.toLocaleString()}\n${EMOJI_MONEY} **Gastado:** $${data.dinero.toFixed(2)}`)
+      .setDescription(
+        `# ${EMOJI_FELIZ} **Perfil de** ${user.username}\n\n` +
+        `${EMOJI_STAR} **Rango:** ${actual.nombre}\n` +
+        `${EMOJI_ROBUX} **Robux:** ${data.robux.toLocaleString()}\n` +
+        `${EMOJI_MONEY} **Gastado:** $${data.dinero.toFixed(2)}\n` +
+        `${EMOJI_BAGS} **Compras:** ${data.compras}\n` +
+        `${EMOJI_FIRE} **Próximo rango:** ${siguiente ? `${siguiente.nombre} (faltan ${faltan.toLocaleString()})` : 'Máximo'}`
+      )
       .setFooter({ text: 'ʜᴀɪᴅᴇɴ ꜱᴛᴏʀᴇ 🌙' });
     await interaction.reply({ embeds: [embed] });
   }
@@ -475,69 +503,6 @@ client.on('interactionCreate', async interaction => {
       .setDescription(`### ${p.flag} ${p.nombre}\n\n${EMOJI_ROBUX} **${cantidad.toLocaleString()} Robux**\n\n💰 **Total:** \`${result.precioLocal.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${result.moneda}\``)
       .setFooter({ text: 'ʜᴀɪᴅᴇɴ ꜱᴛᴏʀᴇ 🌙' });
     await interaction.editReply({ embeds: [embed] });
-  }
-});
-
-client.on('messageCreate', async message => {
-  if (message.author.bot || !message.content.startsWith(PREFIX)) return;
-  const args = message.content.slice(PREFIX.length).trim().split(/ +/);
-  const command = args.shift().toLowerCase();
-  const userId = message.author.id;
-
-  if (command === 'pagocon') {
-    sesiones.set(userId, { paso: 'pais' });
-    const embed = new EmbedBuilder()
-      .setColor(0x5865F2)
-      .setAuthor({ name: '✵•.¸,✵°✵.｡.✰ ℍ𝕒𝕚𝕕𝕖𝕟 𝕊𝕥𝕠𝕣𝕖 🌙 ✰.｡.✵°✵,¸.•✵´' })
-      .setTitle(`${EMOJI_FELIZ} Selecciona tu país / método de pago`)
-      .setDescription('Tocá el botón de tu país para continuar.')
-      .setFooter({ text: 'ʜᴀɪᴅᴇɴ ꜱᴛᴏʀᴇ 🌙' });
-    await message.reply({ embeds: [embed], components: crearBotonesPaises() });
-    return;
-  }
-
-  const sesion = sesiones.get(userId);
-  if (!sesion) return;
-
-  if (command === 'cantidad' && sesion.paso === 'cantidad') {
-    const cant = parseInt(args[0]);
-    if (!cant || cant < 1) return message.reply(`${EMOJI_RED} Escribí una cantidad válida. Ejemplo: \`!cantidad 1000\``);
-    sesion.cantidad = cant;
-    if (sesion.metodo === 'regalo') {
-      sesion.paso = 'juego';
-      await message.reply(`${EMOJI_VERI} Cantidad guardada.\n\nAhora escribí el nombre del juego:\n\`!juego Adopt Me\``);
-    } else {
-      sesion.paso = 'usuario';
-      await message.reply(`${EMOJI_VERI} Cantidad guardada.\n\nAhora escribí tu usuario de Roblox:\n\`!usuario tunombre\``);
-    }
-  }
-
-  if (command === 'juego' && sesion.paso === 'juego') {
-    const juego = args.join(' ');
-    if (!juego) return message.reply(`${EMOJI_RED} Escribí el nombre del juego. Ejemplo: \`!juego Adopt Me\``);
-    sesion.juego = juego;
-    sesion.paso = 'usuario';
-    await message.reply(`${EMOJI_VERI} Juego guardado.\n\nAhora escribí tu usuario de Roblox:\n\`!usuario tunombre\``);
-  }
-
-  if (command === 'usuario' && sesion.paso === 'usuario') {
-    const usuario = args[0];
-    if (!usuario) return message.reply(`${EMOJI_RED} Escribí tu usuario. Ejemplo: \`!usuario nequipepe123\``);
-    sesion.usuario = usuario;
-    if (sesion.metodo === 'grupo') {
-      await message.reply(`${EMOJI_VERI} Usuario: **${usuario}**\n\nPodés verificar más usuarios con \`/verificar usuario\`\nCuando termines, escribí:\n\`!precio automatico\``);
-      sesion.paso = 'confirmar';
-    } else {
-      await finalizarCompra(message.channel, userId, sesion);
-    }
-  }
-
-  if (command === 'precio' && args[0] === 'automatico' && sesion.paso === 'confirmar') {
-    await finalizarCompra(message.channel, userId, sesion);
-  }
-
-  if (command === 'help') {
-    await message.reply(`${EMOJI_FELIZ} Usá \`!pagocon\` para iniciar una compra.`);
   }
 });
 
