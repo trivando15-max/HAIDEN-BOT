@@ -10,21 +10,27 @@ const PREFIX = '!';
 const VOUCH_CHANNEL_ID = '1470667210778214675';
 const COMPRAS_FILE = './compras.json';
 
+const EMOJI_VERI = '<:EMOJIVERI:1574998893689577523>';
+const EMOJI_RED = '<:EMOJIALERTRED:1574998814769680475>';
+const EMOJI_ORANGE = '<:EMOJIALERTORANGE:1574998744510767144>';
+const EMOJI_ROBLOX = '<:Roblox:1518984627593805986>';
+const EMOJI_ROBUX = '<:robux:1476751095991632017>';
+
 const GROUPS = [
-  { id: 35619576, name: "ANIME UGC'S CREATOR", requiredDays: 15 },
-  { id: 34564860, name: "Comunidad Celestial RBLX", requiredDays: 15 },
-  { id: 13080841, name: "Gorra Shop", requiredDays: 15 },
-  { id: 15119364, name: "ＢＬＡＣＫ ＣＡＴ＄ ＵＧC", requiredDays: 15 },
-  { id: 33422152, name: "nxtrnd", requiredDays: 15 },
-  { id: 33332820, name: "Random Island", requiredDays: 15 },
-  { id: 35816914, name: "One Ugc man", requiredDays: 15 },
-  { id: 35826008, name: "Really", requiredDays: 15 },
-  { id: 578297005, name: "Anime ugccs", requiredDays: 15 },
-  { id: 33707960, name: "SeIfMade Ent", requiredDays: 15 },
-  { id: 35399081, name: "drowsing", requiredDays: 15 },
-  { id: 809551446, name: "AnimeFACTORY1", requiredDays: 15 },
-  { id: 567256399, name: "UGC Bundle Shop", requiredDays: 15 },
-  { id: 608833450, name: "tactical cool", requiredDays: 15 },
+  { id: 35619576, name: "ANIME UGC'S CREATOR", requiredDays: 15, url: "https://www.roblox.com/groups/35619576" },
+  { id: 34564860, name: "Comunidad Celestial RBLX", requiredDays: 15, url: "https://www.roblox.com/groups/34564860" },
+  { id: 13080841, name: "Gorra Shop", requiredDays: 15, url: "https://www.roblox.com/groups/13080841" },
+  { id: 15119364, name: "ＢＬＡＣＫ ＣＡＴ＄ ＵＧC", requiredDays: 15, url: "https://www.roblox.com/groups/15119364" },
+  { id: 33422152, name: "nxtrnd", requiredDays: 15, url: "https://www.roblox.com/groups/33422152" },
+  { id: 33332820, name: "Random Island", requiredDays: 15, url: "https://www.roblox.com/groups/33332820" },
+  { id: 35816914, name: "One Ugc man", requiredDays: 15, url: "https://www.roblox.com/groups/35816914" },
+  { id: 35826008, name: "Really", requiredDays: 15, url: "https://www.roblox.com/groups/35826008" },
+  { id: 578297005, name: "Anime ugccs", requiredDays: 15, url: "https://www.roblox.com/groups/578297005" },
+  { id: 33707960, name: "SeIfMade Ent", requiredDays: 15, url: "https://www.roblox.com/groups/33707960" },
+  { id: 35399081, name: "drowsing", requiredDays: 15, url: "https://www.roblox.com/groups/35399081" },
+  { id: 809551446, name: "AnimeFACTORY1", requiredDays: 15, url: "https://www.roblox.com/groups/809551446" },
+  { id: 567256399, name: "UGC Bundle Shop", requiredDays: 15, url: "https://www.roblox.com/groups/567256399" },
+  { id: 608833450, name: "tactical cool", requiredDays: 15, url: "https://www.roblox.com/groups/608833450" },
 ];
 
 const PAISES = {
@@ -55,17 +61,9 @@ const RANGOS = [
 
 function loadCompras() {
   if (!fs.existsSync(COMPRAS_FILE)) return {};
-  try {
-    return JSON.parse(fs.readFileSync(COMPRAS_FILE, 'utf8'));
-  } catch {
-    return {};
-  }
+  try { return JSON.parse(fs.readFileSync(COMPRAS_FILE, 'utf8')); } catch { return {}; }
 }
-
-function saveCompras() {
-  fs.writeFileSync(COMPRAS_FILE, JSON.stringify(compradores, null, 2));
-}
-
+function saveCompras() { fs.writeFileSync(COMPRAS_FILE, JSON.stringify(compradores, null, 2)); }
 let compradores = loadCompras();
 
 function extractDataFromMessages(messages) {
@@ -87,8 +85,7 @@ function extractDataFromMessages(messages) {
 }
 
 function getRango(robux) {
-  let actual = RANGOS[0];
-  let siguiente = null;
+  let actual = RANGOS[0], siguiente = null;
   for (const r of RANGOS) {
     if (robux >= r.robux) actual = r;
     else { siguiente = r; break; }
@@ -118,9 +115,7 @@ async function getMembership(groupId, userId) {
 function crearEmbedPrecio(paisKey, cantidad, tipo) {
   const p = PAISES[paisKey];
   if (!p) return null;
-  const pn = p.normal;
-  const pd = p.descuento;
-
+  const pn = p.normal, pd = p.descuento;
   let desc;
   if (tipo === 'a_robux') {
     const robuxN = Math.floor((cantidad / pn) * 1000);
@@ -131,16 +126,12 @@ function crearEmbedPrecio(paisKey, cantidad, tipo) {
     const dineroD = (cantidad / 1000 * pd).toFixed(2);
     desc = `# ${dineroN} ${p.moneda}\n\n${p.flag} **${p.nombre}**\n📦 **Robux ingresados:** \`${cantidad.toLocaleString()}\`\n💵 **Costo:** \`${dineroN} ${p.moneda}\`\n\n🔥 **Con descuento (30k+):** **${dineroD} ${p.moneda}**\n━━━━━━━━━━━━━━━━━━━━\n*Tarifa:* \`${pn} ${p.moneda} / 1.000 Robux\``;
   }
-
   return new EmbedBuilder().setColor(0x00ff88).setAuthor({ name: 'Haiden Store • Calculadora' }).setDescription(desc).setFooter({ text: 'Haiden Store' });
 }
 
 client.once('ready', async () => {
   console.log(`Bot listo como ${client.user.tag}`);
-  console.log(`Compras cargadas: ${Object.keys(compradores).length} usuarios`);
-
   const paisChoices = Object.entries(PAISES).map(([key, p]) => ({ name: `${p.flag} ${p.nombre}`, value: key }));
-
   const commands = [
     new SlashCommandBuilder().setName('verificar').setDescription('Verifica días en grupos').addStringOption(o => o.setName('usuario').setDescription('Username de Roblox').setRequired(true)),
     new SlashCommandBuilder().setName('vouch').setDescription('Publica un vouch').setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
@@ -151,7 +142,6 @@ client.once('ready', async () => {
       .addNumberOption(o => o.setName('cantidad').setDescription('Cantidad').setRequired(true))
       .addStringOption(o => o.setName('pais').setDescription('País').setRequired(true).addChoices(...paisChoices))
   ].map(c => c.toJSON());
-
   const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
   await rest.put(Routes.applicationCommands(client.user.id), { body: commands });
 });
@@ -164,22 +154,44 @@ client.on('interactionCreate', async interaction => {
     const username = interaction.options.getString('usuario');
     const userId = await getRobloxUserId(username);
     if (!userId) return interaction.editReply('❌ Usuario no encontrado.');
+
     const results = [];
     let eligible = 0, waiting = 0, notIn = 0;
     for (const g of GROUPS) {
       const m = await getMembership(g.id, userId);
       if (!m) { notIn++; results.push({ ...g, status: 'not_in' }); }
       else if (m.days >= g.requiredDays) { eligible++; results.push({ ...g, status: 'eligible', days: m.days }); }
-      else { waiting++; results.push({ ...g, status: 'waiting', days: m.days, remaining: g.requiredDays - m.days }); }
+      else { waiting++; results.push({ ...g, status: 'waiting', days: m.days }); }
     }
-    const embed = new EmbedBuilder().setTitle('🔍 VERIFICACIÓN DE GRUPOS').setColor(0x5865F2)
-      .setDescription(`# ${username}\n**Roblox ID:** \`${userId}\`\n\n**📊 RESUMEN**\n✅ **${eligible}** Elegibles\n⏳ **${waiting}** En espera\n❌ **${notIn}** Sin unirse`);
-    const wg = results.filter(r => r.status === 'waiting');
-    if (wg.length) embed.addFields({ name: `⏳ EN ESPERA (${wg.length})`, value: wg.map(g => `⏳ **${g.name}**\n↳ ${g.days}/${g.requiredDays} días`).join('\n\n').slice(0, 1024) });
-    const eg = results.filter(r => r.status === 'eligible');
-    if (eg.length) embed.addFields({ name: `✅ ELEGIBLES (${eg.length})`, value: eg.map(g => `✅ **${g.name}**\n↳ ${g.days} días`).join('\n\n').slice(0, 1024) });
-    const ng = results.filter(r => r.status === 'not_in');
-    if (ng.length) embed.addFields({ name: `❌ SIN UNIRSE (${ng.length})`, value: ng.map(g => `❌ ${g.name}`).join('\n').slice(0, 1024) });
+
+    let desc = `🌐 **RESUMEN DE VERIFICACIÓN**\n`;
+    desc += `${EMOJI_VERI} **${eligible}** elegibles  ${EMOJI_ORANGE} **${waiting}** en espera  ${EMOJI_RED} **${notIn}** sin unirse\n`;
+    desc += `**${GROUPS.length}** grupos configurados\n\n`;
+
+    const eligibleGroups = results.filter(r => r.status === 'eligible');
+    if (eligibleGroups.length) {
+      desc += `${EMOJI_VERI} **GRUPOS ELEGIBLES (${eligibleGroups.length})**\n`;
+      desc += eligibleGroups.map(g => `${EMOJI_VERI} ${EMOJI_ROBLOX} **[${g.name}](${g.url})**\n└ Cumple ${g.days}/15 días`).join('\n') + '\n\n';
+    }
+
+    const waitingGroups = results.filter(r => r.status === 'waiting');
+    if (waitingGroups.length) {
+      desc += `${EMOJI_ORANGE} **EN ESPERA (${waitingGroups.length})**\n`;
+      desc += waitingGroups.map(g => `${EMOJI_ORANGE} ${EMOJI_ROBLOX} **[${g.name}](${g.url})**\n└ Lleva ${g.days}/15 días`).join('\n') + '\n\n';
+    }
+
+    const notInGroups = results.filter(r => r.status === 'not_in');
+    if (notInGroups.length) {
+      desc += `${EMOJI_RED} **GRUPOS PENDIENTES DE UNIRSE (${notInGroups.length})**\n`;
+      desc += notInGroups.map(g => `${EMOJI_RED} ${EMOJI_ROBLOX} **[${g.name}](${g.url})**\n└ No pertenece al grupo`).join('\n');
+    }
+
+    const embed = new EmbedBuilder()
+      .setColor(0x5865F2)
+      .setTitle(`🔍 Verificación de ${username}`)
+      .setDescription(desc.slice(0, 4096))
+      .setFooter({ text: 'Haiden Store • Roblox Open Cloud' });
+
     await interaction.editReply({ embeds: [embed] });
   }
 
@@ -283,7 +295,6 @@ client.on('messageCreate', async message => {
   }
 });
 
-// Para que Render detecte el puerto
 const app = express();
 const PORT = process.env.PORT || 3000;
 app.get('/', (req, res) => res.send('Bot online'));
