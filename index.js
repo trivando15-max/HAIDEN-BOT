@@ -47,19 +47,26 @@ const GROUPS = [
 ];
 
 const PAISES = {
-  global:     { nombre: 'Global',     flag: '🌐', moneda: 'USD', normal: 6.5,  descuento: 6 },
-  colombia:   { nombre: 'Colombia',   flag: '🇨🇴', moneda: 'COP', normal: 24000, descuento: 22000 },
-  mexico:     { nombre: 'México',     flag: '🇲🇽', moneda: 'MXN', normal: 130,   descuento: 119 },
-  peru:       { nombre: 'Perú',       flag: '🇵🇪', moneda: 'PEN', normal: 24,    descuento: 22 },
-  argentina:  { nombre: 'Argentina',  flag: '🇦🇷', moneda: 'ARS', normal: 12000, descuento: 11000 },
-  chile:      { nombre: 'Chile',      flag: '🇨🇱', moneda: 'CLP', normal: 7000,  descuento: 6500 },
-  ecuador:    { nombre: 'Ecuador',    flag: '🇪🇨', moneda: 'USD', normal: 7,     descuento: 6.5 },
-  europa:     { nombre: 'Europa',     flag: '🇪🇺', moneda: 'EUR', normal: 6.6,   descuento: 6.1 },
-  panama:     { nombre: 'Panamá',     flag: '🇵🇦', moneda: 'USD', normal: 7,     descuento: 6.5 },
-  eeuu:       { nombre: 'Estados Unidos', flag: '🇺🇸', moneda: 'USD', normal: 6.85, descuento: 6.32 },
-  nicaragua:  { nombre: 'Nicaragua',  flag: '🇳🇮', moneda: 'NIO', normal: 270,   descuento: 250 },
-  venezuela:  { nombre: 'Venezuela',  flag: '🇻🇪', moneda: 'VES', normal: 8000,  descuento: 7400 },
-  usdt:       { nombre: 'USDT',       flag: '💵', moneda: 'USDT', normal: 6.5,  descuento: 6 }
+  global:     { nombre: 'Global',     flag: '🌐', moneda: 'USDT', fiat: null },
+  colombia:   { nombre: 'Colombia',   flag: '🇨🇴', moneda: 'COP',  fiat: 'COP' },
+  mexico:     { nombre: 'México',     flag: '🇲🇽', moneda: 'MXN',  fiat: 'MXN' },
+  peru:       { nombre: 'Perú',       flag: '🇵🇪', moneda: 'PEN',  fiat: 'PEN' },
+  argentina:  { nombre: 'Argentina',  flag: '🇦🇷', moneda: 'ARS',  fiat: 'ARS' },
+  chile:      { nombre: 'Chile',      flag: '🇨🇱', moneda: 'CLP',  fiat: 'CLP' },
+  ecuador:    { nombre: 'Ecuador',    flag: '🇪🇨', moneda: 'USD',  fiat: null },
+  europa:     { nombre: 'Europa',     flag: '🇪🇺', moneda: 'EUR',  fiat: null },
+  panama:     { nombre: 'Panamá',     flag: '🇵🇦', moneda: 'USD',  fiat: null },
+  eeuu:       { nombre: 'Estados Unidos', flag: '🇺🇸', moneda: 'USD', fiat: null },
+  nicaragua:  { nombre: 'Nicaragua',  flag: '🇳🇮', moneda: 'NIO',  fiat: null },
+  venezuela:  { nombre: 'Venezuela',  flag: '🇻🇪', moneda: 'VES',  fiat: 'VES' },
+  usdt:       { nombre: 'USDT',       flag: '💵', moneda: 'USDT', fiat: null }
+};
+
+const METODOS_ROBUX = {
+  grupo:   { nombre: 'Grupo',   normal: 6.5, descuento: 6 },
+  gamepass:{ nombre: 'Gamepass', precio: 7 },
+  plus:    { nombre: 'Plus',     precio: 8 },
+  regalo:  { nombre: 'Regalo',   precio: 5.5 }
 };
 
 const RANGOS = [
@@ -152,38 +159,97 @@ async function getMembership(groupId, userId) {
   } catch { return null; }
 }
 
-function crearEmbedPrecio(paisKey, cantidad, tipo) {
-  const p = PAISES[paisKey];
-  if (!p) return null;
-  const pn = p.normal;
-  let desc;
-  if (tipo === 'a_robux') {
-    const robuxN = Math.floor((cantidad / pn) * 1000);
-    desc = `### ${p.flag} ${p.nombre}\n\n${EMOJI_ROBUX} **Cantidad:**\n\`${robuxN.toLocaleString()} Robux\`\n\n💰 **Precio total:**\n# \`${cantidad} ${p.moneda}\`\n\n📊 **Tarifa:** \`${pn} ${p.moneda} / 1.000 Robux\`\n\n━━━━━━━━━━━━━━━━━━━━\n\n🛍️ **Haiden Store**\n_Cotización automática de Robux_`;
-  } else {
-    const dineroN = (cantidad / 1000 * pn).toFixed(2);
-    desc = `### ${p.flag} ${p.nombre}\n\n${EMOJI_ROBUX} **Cantidad:**\n\`${cantidad.toLocaleString()} Robux\`\n\n💰 **Precio total:**\n# \`${dineroN} ${p.moneda}\`\n\n📊 **Tarifa:** \`${pn} ${p.moneda} / 1.000 Robux\`\n\n━━━━━━━━━━━━━━━━━━━━\n\n🛍️ **Haiden Store**\n_Cotización automática de Robux_`;
+// Binance P2P
+async function getBinanceP2PPrice(fiat) {
+  try {
+    const res = await axios.get('https://www.binance.com/bapi/c2c/v1/public/c2c/agent/quote-price', {
+      params: { fiat, asset: 'USDT', tradeType: 'BUY' },
+      timeout: 8000
+    });
+    const price = parseFloat(res.data?.data?.price || 0);
+    if (!price) return null;
+    return price * 1.016; // +1.6%
+  } catch (e) {
+    console.log('Error Binance:', e.message);
+    return null;
   }
-  return new EmbedBuilder()
-    .setColor(0x00ff88)
-    .setAuthor({ name: '✵•.¸,✵°✵.｡.✰ ℍ𝕒𝕚𝕕𝕖𝕟 𝕊𝕥𝕠𝕣𝕖 🌙 ✰.｡.✵°✵,¸.•✵´' })
-    .setDescription(desc)
-    .setFooter({ text: 'ʜᴀɪᴅᴇɴ ꜱᴛᴏʀᴇ 🌙' });
+}
+
+function getPrecioRobuxUSDT(metodo, cantidad) {
+  const m = METODOS_ROBUX[metodo];
+  if (!m) return null;
+  if (metodo === 'grupo') {
+    return cantidad >= 30000 ? m.descuento : m.normal;
+  }
+  return m.precio;
+}
+
+async function calcularPrecio(paisKey, cantidad, metodo) {
+  const pais = PAISES[paisKey];
+  if (!pais) return null;
+
+  const precioUSDT = getPrecioRobuxUSDT(metodo, cantidad);
+  if (!precioUSDT) return null;
+
+  let totalUSDT = (cantidad / 1000) * precioUSDT;
+
+  // Comisiones
+  if (pais.moneda === 'USD') totalUSDT *= 1.05;
+  else if (pais.moneda !== 'EUR' && pais.moneda !== 'USDT') totalUSDT *= 1.02;
+
+  let precioLocal = totalUSDT;
+  let moneda = 'USDT';
+
+  if (pais.fiat) {
+    const tasa = await getBinanceP2PPrice(pais.fiat);
+    if (tasa) {
+      precioLocal = totalUSDT * tasa;
+      moneda = pais.moneda;
+    }
+  } else if (pais.moneda === 'EUR') {
+    // Revolut aproximado (se puede mejorar después)
+    precioLocal = totalUSDT * 0.93;
+    moneda = 'EUR';
+  }
+
+  return { precioLocal, moneda, precioUSDT: totalUSDT, metodo: METODOS_ROBUX[metodo].nombre };
+}
+
+function crearEmbedPrecio(paisKey, cantidad, metodo) {
+  return calcularPrecio(paisKey, cantidad, metodo).then(result => {
+    if (!result) return null;
+    const p = PAISES[paisKey];
+    const desc = `### ${p.flag} ${p.nombre}\n\n` +
+      `${EMOJI_ROBUX} **Cantidad:**\n\`${cantidad.toLocaleString()} Robux\`\n\n` +
+      `📦 **Método:** ${result.metodo}\n\n` +
+      `💰 **Precio total:**\n# \`${result.precioLocal.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${result.moneda}\`\n\n` +
+      `📊 **Equivalente:** \`${result.precioUSDT.toFixed(2)} USDT\`\n\n` +
+      `━━━━━━━━━━━━━━━━━━━━\n\n🛍️ **Haiden Store**\n_Cotización automática_`;
+
+    return new EmbedBuilder()
+      .setColor(0x00ff88)
+      .setAuthor({ name: '✵•.¸,✵°✵.｡.✰ ℍ𝕒𝕚𝕕𝕖𝕟 𝕊𝕥𝕠𝕣𝕖 🌙 ✰.｡.✵°✵,¸.•✵´' })
+      .setDescription(desc)
+      .setFooter({ text: 'ʜᴀɪᴅᴇɴ ꜱᴛᴏʀᴇ 🌙' });
+  });
 }
 
 client.once('ready', async () => {
   console.log(`Bot listo como ${client.user.tag}`);
   const paisChoices = Object.entries(PAISES).map(([key, p]) => ({ name: `${p.flag} ${p.nombre}`, value: key }));
+  const metodoChoices = Object.entries(METODOS_ROBUX).map(([key, m]) => ({ name: m.nombre, value: key }));
+
   const commands = [
     new SlashCommandBuilder().setName('verificar').setDescription('Verifica días en grupos').addStringOption(o => o.setName('usuario').setDescription('Username de Roblox').setRequired(true)),
     new SlashCommandBuilder().setName('vouch').setDescription('Publica un vouch').setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
     new SlashCommandBuilder().setName('top').setDescription('Top compradores'),
     new SlashCommandBuilder().setName('perfil').setDescription('Tu perfil de comprador').addUserOption(o => o.setName('usuario').setDescription('Usuario').setRequired(false)),
     new SlashCommandBuilder().setName('precio').setDescription('Calculadora de precios')
-      .addStringOption(o => o.setName('tipo').setDescription('Tipo de cálculo').setRequired(true).addChoices({ name: 'Dinero → Robux', value: 'a_robux' }, { name: 'Robux → Dinero', value: 'a_dinero' }))
-      .addNumberOption(o => o.setName('cantidad').setDescription('Cantidad').setRequired(true))
+      .addStringOption(o => o.setName('metodo').setDescription('Método de envío').setRequired(true).addChoices(...metodoChoices))
+      .addNumberOption(o => o.setName('cantidad').setDescription('Cantidad de Robux').setRequired(true))
       .addStringOption(o => o.setName('pais').setDescription('País').setRequired(true).addChoices(...paisChoices))
   ].map(c => c.toJSON());
+
   const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
   await rest.put(Routes.applicationCommands(client.user.id), { body: commands });
 });
@@ -203,11 +269,7 @@ client.on('messageCreate', async (message) => {
     const match = authorField.value.match(/<@!?(\d+)>/);
     if (match) userId = match[1];
   }
-
-  if (!userId) {
-    console.log('No se encontró Ticket Author');
-    return;
-  }
+  if (!userId) return;
 
   const ticketName = embed.fields?.find(f => f.name === 'Ticket Name')?.value || 'ticket';
 
@@ -253,9 +315,7 @@ client.on('messageCreate', async (message) => {
       )
       .setFooter({ text: 'ʜᴀɪᴅᴇɴ ꜱᴛᴏʀᴇ 🌙' });
     await user.send({ embeds: [dmEmbed] });
-  } catch (e) {
-    console.log('No se pudo enviar DM:', e.message);
-  }
+  } catch (e) {}
 });
 
 client.on('interactionCreate', async interaction => {
@@ -396,12 +456,13 @@ client.on('interactionCreate', async interaction => {
   }
 
   if (interaction.commandName === 'precio') {
-    const tipo = interaction.options.getString('tipo');
+    await interaction.deferReply();
+    const metodo = interaction.options.getString('metodo');
     const cantidad = interaction.options.getNumber('cantidad');
     const pais = interaction.options.getString('pais');
-    const embed = crearEmbedPrecio(pais, cantidad, tipo);
-    if (!embed) return interaction.reply('❌ País no válido.');
-    await interaction.reply({ embeds: [embed] });
+    const embed = await crearEmbedPrecio(pais, cantidad, metodo);
+    if (!embed) return interaction.editReply('❌ No se pudo calcular el precio.');
+    await interaction.editReply({ embeds: [embed] });
   }
 });
 
@@ -415,19 +476,20 @@ client.on('messageCreate', async message => {
       .setColor(0x5865F2)
       .setAuthor({ name: '✵•.¸,✵°✵.｡.✰ ℍ𝕒𝕚𝕕𝕖𝕟 𝕊𝕥𝕠𝕣𝕖 🌙 ✰.｡.✵°✵,¸.•✵´' })
       .setTitle('📖 Lista de Comandos')
-      .setDescription('# Comandos disponibles\n\n**Con `!`:**\n`!verificar usuario`\n`!vouch`\n`!top`\n`!perfil`\n`!precio 10 argentina`\n\n**También funcionan con `/`**')
+      .setDescription('# Comandos disponibles\n\n**Con `!`:**\n`!verificar usuario`\n`!vouch`\n`!top`\n`!perfil`\n`!precio grupo 10000 argentina`\n\n**También funcionan con `/`**')
       .setFooter({ text: 'ʜᴀɪᴅᴇɴ ꜱᴛᴏʀᴇ 🌙' });
     await message.reply({ embeds: [embed] });
   }
 
   if (command === 'precio' || command === 'prices') {
-    const cantidad = parseFloat(args[0]);
-    const paisInput = args.slice(1).join(' ').toLowerCase();
-    if (!cantidad || !paisInput) return message.reply('Usá: `!precio 10 argentina`');
+    const metodo = args[0];
+    const cantidad = parseFloat(args[1]);
+    const paisInput = args.slice(2).join(' ').toLowerCase();
+    if (!metodo || !cantidad || !paisInput) return message.reply('Usá: `!precio grupo 10000 argentina`');
     const paisKey = Object.keys(PAISES).find(k => PAISES[k].nombre.toLowerCase().includes(paisInput) || k.includes(paisInput));
     if (!paisKey) return message.reply('❌ País no encontrado.');
-    const tipo = args.includes('robux') ? 'a_dinero' : 'a_robux';
-    const embed = crearEmbedPrecio(paisKey, cantidad, tipo);
+    const embed = await crearEmbedPrecio(paisKey, cantidad, metodo);
+    if (!embed) return message.reply('❌ No se pudo calcular.');
     await message.reply({ embeds: [embed] });
   }
 });
