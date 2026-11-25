@@ -14,7 +14,7 @@ const GROUPS = [
   { id: 35619576, name: "ANIME UGC'S CREATOR", requiredDays: 15 },
   { id: 34564860, name: "Comunidad Celestial RBLX", requiredDays: 15 },
   { id: 13080841, name: "Gorra Shop", requiredDays: 15 },
-  { id: 15119364, name: "C", requiredDays: 15 },
+  { id: 15119364, name: "ＢＬＡＣＫ ＣＡＴ＄ ＵＧC", requiredDays: 15 },
   { id: 33422152, name: "nxtrnd", requiredDays: 15 },
   { id: 33332820, name: "Random Island", requiredDays: 15 },
   { id: 35816914, name: "One Ugc man", requiredDays: 15 },
